@@ -3,7 +3,7 @@
 // mais « qu'est-ce qui est en train de changer dans notre manière de travailler ? »
 
 import { THEMES, similar } from './understand.js';
-import { mean, slope, round, pct } from '../lib/stats.js';
+import { mean, median, slope, round, pct } from '../lib/stats.js';
 
 export const LEARN_METRICS = [
   { key: 'donePoints', label: 'Points livrés', better: 'up', format: 'num' },
@@ -67,11 +67,16 @@ function shifts(trend) {
  * @param feedback compteurs 👍/👎 par type de signal
  */
 export function learn(history, { feedback = {}, dataset } = {}) {
-  const closed = history.filter((h) => h.snap.closed);
+  // Un sprint au périmètre anormalement faible (congés collectifs, sprint « vide ») fausserait les tendances
+  const allClosed = history.filter((h) => h.snap.closed);
+  const typicalScope = median(allClosed.map((h) => h.snap.metrics.scopePoints)) || 0;
+  const atypical = allClosed.filter((h) => h.snap.metrics.scopePoints < typicalScope * 0.3);
+  const closed = allClosed.filter((h) => !atypical.includes(h));
   const series = history.map(({ snap, thought }) => ({
     id: snap.sprint.id,
     name: snap.sprint.name,
     closed: snap.closed,
+    atypical: atypical.some((h) => h.snap === snap),
     health: thought.health,
     metrics: Object.fromEntries(LEARN_METRICS.map((m) => [m.key, snap.metrics[m.key]])),
     committedPoints: snap.metrics.committedPoints,
@@ -109,9 +114,17 @@ export function learn(history, { feedback = {}, dataset } = {}) {
   }
   const scopeHits = closed.filter((h) => h.snap.metrics.scopeChangeRatio >= 0.1);
   if (scopeHits.length >= 2) patterns.push({ type: 'scope', title: 'Ajouts en cours de sprint récurrents', detail: `${scopeHits.length} sprints sur ${closed.length} ont reçu plus de 10 % d’ajouts (${scopeHits.map((h) => h.snap.sprint.name).join(', ')}).` });
-  const zombies = new Map();
-  for (const { snap } of history) for (const i of snap.issues) if (i.carriedOver >= 2) zombies.set(i.key, i);
-  for (const [key, i] of zombies) patterns.push({ type: 'carryover', title: `${key} traverse les sprints sans aboutir`, detail: `« ${i.title} » a été reporté ${i.carriedOver} fois.` });
+  // Tickets reportés au moins 2 fois : on garde leur dernière apparition, et on ne retient que ceux toujours ouverts
+  const lastSeen = new Map();
+  for (const { snap } of history) for (const i of snap.issues) lastSeen.set(i.key, i);
+  const zombies = [...lastSeen.values()].filter((i) => i.carriedOver >= 2 && !i.done);
+  const finishedLate = [...lastSeen.values()].filter((i) => i.carriedOver >= 2 && i.done);
+  if (zombies.length) {
+    patterns.push({ type: 'carryover', title: `${zombies.length} ticket(s) traversent les sprints sans aboutir`, detail: zombies.map((i) => `${i.key} « ${i.title} » (reporté ${i.carriedOver} fois)`).join(' ; ') });
+  }
+  if (finishedLate.length >= 3) {
+    patterns.push({ type: 'carryover', title: `${finishedLate.length} tickets n’ont abouti qu’après 2 reports ou plus`, detail: 'Signe de tickets trop gros ou démarrés trop tôt : à surveiller au découpage.' });
+  }
 
   // Thème dominant : comment le centre de gravité des difficultés se déplace
   const dominant = series.map((s) => {
@@ -142,5 +155,6 @@ export function learn(history, { feedback = {}, dataset } = {}) {
     dominant,
     learningMemory,
     sprintsAnalysed: closed.length,
+    excluded: atypical.map((h) => ({ name: h.snap.sprint.name, reason: `périmètre de ${h.snap.metrics.scopePoints} pts contre ~${Math.round(typicalScope)} habituellement` })),
   };
 }

@@ -8,7 +8,9 @@
     "start": "node server.js",
     "generate": "node data/generate.js",
     "report": "node cli.js report",
-    "test": "node --test"
+    "test": "node --test",
+    "sync": "node scripts/sync-linear.js",
+    "discover": "node scripts/linear-discover.js"
   },
   "engines": {
     "node": ">=20"

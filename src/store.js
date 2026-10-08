@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+if (existsSync(path.join(root, '.env'))) process.loadEnvFile(path.join(root, '.env'));
 const DATA_FILE = path.resolve(root, process.env.SOBRUS_DATA_FILE || 'data/sobrus-demo.json');
 const FEEDBACK_FILE = path.resolve(root, 'data/feedback.json');
 

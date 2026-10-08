@@ -303,6 +303,23 @@ function carryover(snap) {
   })];
 }
 
+/** Tickets non estimés : la vélocité en points sous-estime le travail réel. */
+function estimationGap(snap) {
+  const missing = snap.issues.filter((i) => i.points == null);
+  const ratio = missing.length / Math.max(1, snap.issues.length);
+  if (ratio < 0.25 || missing.length < 3) return [];
+  return [signal({
+    type: 'estimation_gap', theme: 'predictability',
+    severity: 0.15 + ratio * 0.6,
+    title: `${pct(ratio)} des tickets ne sont pas estimés (${missing.length}/${snap.issues.length})`,
+    narrative: 'Les tickets sans estimation comptent pour zéro point : la vélocité, la capacité et les prévisions sous-estiment le travail réellement fait.',
+    evidence: missing.slice(0, 8).map((i) => `${i.key} — ${i.title}`),
+    issues: keys(missing),
+    question: 'Ces tickets sont-ils trop petits pour être estimés, ou ont-ils été ajoutés sans passer par l’affinage ?',
+    recommendation: { text: 'Estimer chaque ticket qui entre dans le cycle, même en cours de route (0 pour un ticket trivial).', owner: 'Équipe' },
+  })];
+}
+
 /** Livraison concentrée en fin de sprint (« mini-cascade »). */
 function endLoading(snap) {
   if (snap.closed) {
@@ -460,7 +477,7 @@ function stakeholderFeedback(snap) {
 
 export const DETECTORS = [
   stuckIssues, blockers, dependencyBottleneck, recurringDependency, wipOverload, scopeChange, requirementChurn,
-  velocityTrend, overcommitment, forecast, carryover, endLoading, quality, concentration, commentSignals,
+  velocityTrend, overcommitment, forecast, carryover, estimationGap, endLoading, quality, concentration, commentSignals,
   retroFollowThrough, stakeholderFeedback,
 ];
 

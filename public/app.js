@@ -411,7 +411,7 @@ function fmtMetric(v, f) {
 function viewLearn() {
   const l = state.data.learn;
   const themes = { flow: 'Flux', dependencies: 'Dépendances', scope: 'Périmètre', predictability: 'Prévisibilité', quality: 'Qualité', team: 'Équipe', improvement: 'Amélioration', stakeholders: 'Parties prenantes' };
-  const closedSeries = l.series.filter((s) => s.closed);
+  const closedSeries = l.series.filter((s) => s.closed && !s.atypical);
   return `
     <div class="card cross"><h2>Qu’est-ce qui est en train de changer dans notre manière de travailler ?</h2><p>${esc(l.headline)}</p>
       <div class="chips">${l.dominant.map((d, i) => `<span class="tag ${d.theme ? 'orange' : 'green'}">${esc(d.sprint)} : ${esc(d.label)}</span>${i < l.dominant.length - 1 ? '<span class="muted">→</span>' : ''}`).join('')}</div>
@@ -424,7 +424,7 @@ function viewLearn() {
         ${Object.entries(themes).map(([k, label]) => `<tr><th>${label}</th>${l.series.map((s) => `<td>${heat(s.themes[k])}</td>`).join('')}</tr>`).join('')}
         </tbody></table></div>
     </div>
-    <div class="section-title"><h2>Tendances</h2><span class="muted small">${l.sprintsAnalysed} sprints terminés analysés (fenêtre glissante de 4)</span></div>
+    <div class="section-title"><h2>Tendances</h2><span class="muted small">${l.sprintsAnalysed} sprints terminés analysés (fenêtre glissante de 4)${l.excluded.length ? ` · exclu(s) car atypique(s) : ${l.excluded.map((e) => `${esc(e.name)} (${esc(e.reason)})`).join(', ')}` : ''}</span></div>
     <div class="card"><table><thead><tr><th>Indicateur</th>${closedSeries.map((s) => `<th class="num">${esc(s.name.replace('Sprint ', 'S'))}</th>`).join('')}<th>Évolution</th><th>Tendance</th></tr></thead><tbody>
       ${l.metrics.map((m) => {
         const t = l.trend[m.key];
