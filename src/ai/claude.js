@@ -2,6 +2,11 @@
 // Le moteur (OBSERVE → LEARN) fonctionne sans IA ; Claude ajoute la lecture fine, la synthèse
 // et la formulation. Il ne reçoit que des données agrégées, pseudonymisées par défaut.
 
+import { execSync, spawn } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 const MODEL = process.env.SOBRUS_AI_MODEL || 'claude-opus-5-5';
 const PSEUDONYMIZE = process.env.SOBRUS_AI_PSEUDONYMIZE !== 'false';
 
@@ -58,17 +63,60 @@ function pseudonymizer(team) {
 
 export const AI_KINDS = Object.keys(TASKS);
 
-export async function generate(kind, analysis, dataset) {
-  if (!TASKS[kind]) throw new Error(`Type de préparation inconnu : ${kind}`);
+// Deux fournisseurs possibles :
+//  - « claude-code » : la CLI Claude Code installée sur le poste, avec le siège Claude de l'utilisateur
+//    (usage personnel, aucun coût supplémentaire) ;
+//  - « api » : l'API Anthropic avec une clé (nécessaire si le Copilot est hébergé pour plusieurs personnes).
+// Par défaut : l'API si une clé est définie, sinon Claude Code s'il est installé.
+
+function claudeCliAvailable() {
+  try {
+    execSync(process.platform === 'win32' ? 'where claude' : 'command -v claude', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+const hasApiKey = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+let cliCache = null;
+export function aiProvider() {
+  const forced = process.env.SOBRUS_AI_PROVIDER;
+  if (forced === 'api' || forced === 'claude-code') return forced;
+  if (hasApiKey()) return 'api';
+  cliCache ??= claudeCliAvailable();
+  return cliCache ? 'claude-code' : null;
+}
+
+/** Appelle Claude Code en mode non interactif (`claude -p`), dans un dossier vide, prompt sur stdin. */
+function runClaudeCode(prompt) {
+  const sandbox = mkdtempSync(path.join(tmpdir(), 'sobrus-copilot-'));
+  const args = ['-p', '--output-format', 'text'];
+  if (process.env.SOBRUS_AI_MODEL) args.push('--model', process.env.SOBRUS_AI_MODEL);
+  return new Promise((resolve, reject) => {
+    const child = spawn('claude', args, { cwd: sandbox, shell: process.platform === 'win32', windowsHide: true });
+    let out = '';
+    let err = '';
+    const timer = setTimeout(() => { child.kill(); reject(Object.assign(new Error('Claude Code n’a pas répondu en 5 minutes.'), { status: 504 })); }, 5 * 60e3);
+    child.stdout.on('data', (d) => { out += d; });
+    child.stderr.on('data', (d) => { err += d; });
+    child.on('error', (e) => { clearTimeout(timer); reject(Object.assign(new Error(`Impossible de lancer Claude Code : ${e.message}`), { status: 503 })); });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      rmSync(sandbox, { recursive: true, force: true });
+      if (code === 0 && out.trim()) resolve(out.trim());
+      else reject(Object.assign(new Error(`Claude Code a échoué (code ${code}) : ${(err || out).trim().slice(0, 400) || 'aucune sortie'}. Vérifiez la connexion avec « claude » dans un terminal.`), { status: 502 }));
+    });
+    child.stdin.end(prompt);
+  });
+}
+
+async function runApi(task, data) {
   let Anthropic;
   try {
     ({ default: Anthropic } = await import('@anthropic-ai/sdk'));
   } catch {
     throw Object.assign(new Error('SDK Anthropic non installé : exécutez « npm install ».'), { status: 503 });
   }
-  const privacy = PSEUDONYMIZE ? pseudonymizer(dataset.team) : { hide: (s) => s, reveal: (s) => s };
-  const data = privacy.hide(JSON.stringify(payloadFor(kind, analysis), null, 1));
-
   const client = new Anthropic();
   let response;
   try {
@@ -80,22 +128,36 @@ export async function generate(kind, analysis, dataset) {
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       system: SYSTEM,
-      messages: [{ role: 'user', content: `${TASKS[kind]}\n\n<donnees_sprint>\n${data}\n</donnees_sprint>` }],
+      messages: [{ role: 'user', content: `${task}\n\n<donnees_sprint>\n${data}\n</donnees_sprint>` }],
     });
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError || /api key|credentials|auth/i.test(err.message)) {
-      throw Object.assign(new Error('Aucune clé API Anthropic valide : définissez ANTHROPIC_API_KEY avant de lancer le serveur.'), { status: 503 });
-    }
+    if (err instanceof Anthropic.AuthenticationError) throw Object.assign(new Error('Clé API Anthropic invalide.'), { status: 503 });
     if (err instanceof Anthropic.RateLimitError) throw Object.assign(new Error('Limite de requêtes atteinte, réessayez dans un instant.'), { status: 429 });
     if (err instanceof Anthropic.APIError) throw Object.assign(new Error(`Erreur de l’API Claude (${err.status}) : ${err.message}`), { status: 502 });
     throw err;
   }
-  if (response.stop_reason === 'refusal') {
-    throw Object.assign(new Error('La génération a été refusée par le modèle.'), { status: 422 });
-  }
-  const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
-  return { kind, model: response.model, markdown: privacy.reveal(text), pseudonymized: PSEUDONYMIZE };
+  if (response.stop_reason === 'refusal') throw Object.assign(new Error('La génération a été refusée par le modèle.'), { status: 422 });
+  return { text: response.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n'), model: response.model };
 }
 
-export const aiConfigured = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_PROFILE);
-export const aiModel = MODEL;
+export async function generate(kind, analysis, dataset) {
+  if (!TASKS[kind]) throw new Error(`Type de préparation inconnu : ${kind}`);
+  const provider = aiProvider();
+  if (!provider) {
+    throw Object.assign(new Error('Couche IA non configurée : installez Claude Code (« npm install -g @anthropic-ai/claude-code » puis « claude » pour vous connecter), ou définissez ANTHROPIC_API_KEY.'), { status: 503 });
+  }
+  const privacy = PSEUDONYMIZE ? pseudonymizer(dataset.team) : { hide: (s) => s, reveal: (s) => s };
+  const data = privacy.hide(JSON.stringify(payloadFor(kind, analysis), null, 1));
+
+  let result;
+  if (provider === 'api') {
+    result = await runApi(TASKS[kind], data);
+  } else {
+    const prompt = `${SYSTEM}\n\nRéponds uniquement avec le document demandé, sans utiliser d'outils.\n\n${TASKS[kind]}\n\n<donnees_sprint>\n${data}\n</donnees_sprint>`;
+    result = { text: await runClaudeCode(prompt), model: 'Claude Code (siège personnel)' };
+  }
+  return { kind, provider, model: result.model, markdown: privacy.reveal(result.text), pseudonymized: PSEUDONYMIZE };
+}
+
+export const aiConfigured = () => aiProvider() !== null;
+export const aiModel = () => (aiProvider() === 'claude-code' ? 'Claude Code (siège personnel)' : MODEL);

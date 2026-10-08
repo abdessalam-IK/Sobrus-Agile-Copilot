@@ -453,7 +453,7 @@ function aiBox(kind, label) {
   if (entry?.loading) body = '<p class="muted">Claude rédige… (cela peut prendre une minute)</p>';
   else if (entry?.error) body = `<p class="error">${esc(entry.error)}</p>`;
   else if (entry?.markdown) body = `<div class="md">${md(entry.markdown)}</div><p class="small muted">Généré par ${esc(entry.model)}${entry.pseudonymized ? ' · noms pseudonymisés avant envoi' : ''} · à relire et adapter.</p>`;
-  return `<div class="ai-box"><div class="ai-head"><div><b>✦ Couche IA générative</b><div class="small muted">${configured ? 'Claude reçoit uniquement l’analyse agrégée (pas les données brutes).' : 'Définissez ANTHROPIC_API_KEY puis relancez le serveur pour activer cette fonction.'}</div></div>
+  return `<div class="ai-box"><div class="ai-head"><div><b>✦ Couche IA générative</b><div class="small muted">${configured ? 'Claude reçoit uniquement l’analyse agrégée (pas les données brutes).' : 'Installez Claude Code (npm install -g @anthropic-ai/claude-code), connectez-vous avec « claude », puis relancez le serveur.'}</div></div>
     <button class="btn" data-ai="${kind}" ${entry?.loading ? 'disabled' : ''}>${entry?.markdown ? 'Régénérer' : esc(label)}</button></div>${body}</div>`;
 }
 

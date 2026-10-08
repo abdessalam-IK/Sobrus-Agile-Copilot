@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyze, summary } from './src/engine/index.js';
 import { loadDataset, loadFeedback, recordFeedback } from './src/store.js';
-import { generate, aiConfigured, aiModel, AI_KINDS } from './src/ai/claude.js';
+import { generate, aiConfigured, aiModel, aiProvider, AI_KINDS } from './src/ai/claude.js';
 
 const PORT = Number(process.env.PORT || 4300);
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
@@ -42,7 +42,7 @@ async function route(req, res) {
   }
 
   if (req.method === 'GET' && parts[1] === 'config') {
-    return send(res, 200, { ai: { configured: aiConfigured(), model: aiModel, kinds: AI_KINDS } });
+    return send(res, 200, { ai: { configured: aiConfigured(), provider: aiProvider(), model: aiModel(), kinds: AI_KINDS } });
   }
   if (req.method === 'GET' && parts[1] === 'summary') return send(res, 200, summary(loadDataset()));
   if (req.method === 'GET' && parts[1] === 'analysis' && parts[2]) return send(res, 200, runAnalysis(parts[2], asOf));
@@ -69,5 +69,5 @@ http
   })
   .listen(PORT, () => {
     console.log(`Sobrus AI Copilot → http://localhost:${PORT}`);
-    console.log(aiConfigured() ? `Couche IA générative active (${aiModel}).` : 'Couche IA générative inactive (définir ANTHROPIC_API_KEY pour l’activer). Le moteur d’analyse fonctionne sans.');
+    console.log(aiConfigured() ? `Couche IA générative active : ${aiModel()}.` : 'Couche IA générative inactive (installer Claude Code ou définir ANTHROPIC_API_KEY). Le moteur d’analyse fonctionne sans.');
   });
