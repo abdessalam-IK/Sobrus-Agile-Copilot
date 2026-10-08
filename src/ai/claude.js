@@ -3,7 +3,7 @@
 // et la formulation. Il ne reçoit que des données agrégées, pseudonymisées par défaut.
 
 import { execSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -69,13 +69,22 @@ export const AI_KINDS = Object.keys(TASKS);
 //  - « api » : l'API Anthropic avec une clé (nécessaire si le Copilot est hébergé pour plusieurs personnes).
 // Par défaut : l'API si une clé est définie, sinon Claude Code s'il est installé.
 
-function claudeCliAvailable() {
+/** Trouve le binaire Claude Code : variable SOBRUS_CLAUDE_BIN, PATH, ou version embarquée par l'application Claude. */
+function findClaudeBinary() {
+  if (process.env.SOBRUS_CLAUDE_BIN && existsSync(process.env.SOBRUS_CLAUDE_BIN)) return process.env.SOBRUS_CLAUDE_BIN;
   try {
     execSync(process.platform === 'win32' ? 'where claude' : 'command -v claude', { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
+    return 'claude';
+  } catch { /* pas dans le PATH */ }
+  const bundled = process.env.APPDATA && path.join(process.env.APPDATA, 'Claude', 'claude-code');
+  if (bundled && existsSync(bundled)) {
+    const candidates = readdirSync(bundled)
+      .flatMap((v) => (statSync(path.join(bundled, v)).isDirectory() ? readdirSync(path.join(bundled, v)).map((h) => path.join(bundled, v, h, 'claude.exe')) : []))
+      .filter((p) => existsSync(p))
+      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+    if (candidates.length) return candidates[0];
   }
+  return null;
 }
 const hasApiKey = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
 let cliCache = null;
@@ -83,7 +92,7 @@ export function aiProvider() {
   const forced = process.env.SOBRUS_AI_PROVIDER;
   if (forced === 'api' || forced === 'claude-code') return forced;
   if (hasApiKey()) return 'api';
-  cliCache ??= claudeCliAvailable();
+  cliCache ??= findClaudeBinary();
   return cliCache ? 'claude-code' : null;
 }
 
@@ -93,7 +102,8 @@ function runClaudeCode(prompt) {
   const args = ['-p', '--output-format', 'text'];
   if (process.env.SOBRUS_AI_MODEL) args.push('--model', process.env.SOBRUS_AI_MODEL);
   return new Promise((resolve, reject) => {
-    const child = spawn('claude', args, { cwd: sandbox, shell: process.platform === 'win32', windowsHide: true });
+    const bin = cliCache || findClaudeBinary();
+    const child = spawn(bin, args, { cwd: sandbox, shell: bin === 'claude' && process.platform === 'win32', windowsHide: true });
     let out = '';
     let err = '';
     const timer = setTimeout(() => { child.kill(); reject(Object.assign(new Error('Claude Code n’a pas répondu en 5 minutes.'), { status: 504 })); }, 5 * 60e3);
@@ -103,7 +113,9 @@ function runClaudeCode(prompt) {
     child.on('close', (code) => {
       clearTimeout(timer);
       rmSync(sandbox, { recursive: true, force: true });
-      if (code === 0 && out.trim()) resolve(out.trim());
+      if (/not logged in|please run \/login/i.test(out + err)) {
+        reject(Object.assign(new Error(`Claude Code n’est pas connecté en ligne de commande. Lancez une fois « ${bin} » dans un terminal et tapez /login.`), { status: 503 }));
+      } else if (code === 0 && out.trim()) resolve(out.trim());
       else reject(Object.assign(new Error(`Claude Code a échoué (code ${code}) : ${(err || out).trim().slice(0, 400) || 'aucune sortie'}. Vérifiez la connexion avec « claude » dans un terminal.`), { status: 502 }));
     });
     child.stdin.end(prompt);
@@ -160,4 +172,5 @@ export async function generate(kind, analysis, dataset) {
 }
 
 export const aiConfigured = () => aiProvider() !== null;
+export const claudeBinary = () => (aiProvider() === 'claude-code' ? cliCache : null);
 export const aiModel = () => (aiProvider() === 'claude-code' ? 'Claude Code (siège personnel)' : MODEL);
