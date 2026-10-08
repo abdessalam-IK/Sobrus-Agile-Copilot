@@ -4,6 +4,7 @@
 //  - les statuts suivent les types Linear : completed = terminé (« Done à tester » inclus),
 //    started = en cours, backlog / unstarted / triage = à faire ;
 //  - « Stuck » (typé canceled dans Linear) = BLOQUÉ, pas annulé ;
+//  - « Todo for Dev » (typé started dans Linear) = À FAIRE pour les indicateurs de flux ;
 //  - « Design validé » est un statut terminé ;
 //  - les points sont l'estimation Linear (0–7) ; les parents ne sont pas estimés :
 //    une issue parent dont les sous-issues sont dans le cycle est suivie à travers elles ;
@@ -32,9 +33,13 @@ const BLOCK_LABELS = new Set([...LABELS.blocking, ...LABELS.waiting]);
 const labelName = (l) => (l.parent ? `${l.parent.name}/${l.name}` : l.name);
 
 const STUCK = 'Stuck';
+// Statuts typés « started » dans Linear mais qui signifient « pas encore commencé » (validé avec l'équipe).
+// Ne change rien dans Linear : sert uniquement aux indicateurs de flux (WIP, tickets immobiles, cycle time).
+const NOT_STARTED = (process.env.LINEAR_TODO_STATES || 'Todo for Dev').split(',').map((x) => x.trim());
 function mapState(state) {
   if (!state) return null;
   if (state.name === STUCK) return 'blocked';
+  if (NOT_STARTED.includes(state.name)) return 'todo';
   switch (state.type) {
     case 'completed': return 'done';
     case 'started': return 'in_progress';

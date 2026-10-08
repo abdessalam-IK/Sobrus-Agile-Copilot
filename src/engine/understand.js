@@ -149,7 +149,19 @@ function wipOverload(snap, ctx, names) {
   const teamSize = snap.load.length;
   const wipNow = snap.issues.filter((i) => ACTIVE_STATUSES.includes(i.status)).length;
   const wipRef = snap.closed ? snap.metrics.avgWip : wipNow;
-  if (overloaded.length || wipRef > teamSize * 1.4) {
+  if (overloaded.length && wipRef <= teamSize * 1.4) {
+    // WIP d'équipe normal, mais certaines personnes mènent trop de sujets de front
+    const maxWip = Math.max(...overloaded.map((l) => l.wip));
+    out.push(signal({
+      type: 'wip_individual', theme: 'flow',
+      severity: 0.2 + 0.1 * (maxWip - 2) + 0.05 * overloaded.length,
+      title: `${plural(overloaded.length, 'personne mène', 'personnes mènent')} plus de 2 tickets de front`,
+      narrative: `Le travail en cours de l’équipe reste raisonnable (${round(wipRef)} tickets), mais il est concentré : jusqu’à ${maxWip} tickets ouverts en parallèle pour une même personne.`,
+      evidence: overloaded.map((l) => `${names(l.member)} : ${l.wip} tickets en cours`),
+      question: 'Ces tickets avancent-ils vraiment en parallèle, ou certains attendent-ils quelque chose ?',
+      recommendation: { text: 'Finir ou rendre un ticket avant d’en commencer un nouveau ; proposer du pairing sur l’un d’eux.', owner: 'Équipe' },
+    }));
+  } else if (wipRef > teamSize * 1.4) {
     out.push(signal({
       type: 'wip_overload', theme: 'flow',
       severity: 0.25 + 0.12 * overloaded.length + (histWip && wipRef > histWip * 1.3 ? 0.2 : 0),
