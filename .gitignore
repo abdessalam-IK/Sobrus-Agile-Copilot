@@ -1,0 +1,15 @@
+# Dépendances
+node_modules/
+
+# Secrets — ne jamais commiter
+.env
+.env.*
+
+# Données réelles Sobrus (exports Linear, sheets, feedback) — restent en local
+data/private/
+data/feedback.json
+data/jira*.json
+data/linear*.json
+
+# Outils locaux
+.claude/settings.local.json

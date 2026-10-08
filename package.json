@@ -1,0 +1,19 @@
+{
+  "name": "sobrus-ai-copilot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sobrus AI Copilot — couche d'intelligence autour du delivery Agile des équipes Sobrus (prototype expérimental)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "generate": "node data/generate.js",
+    "report": "node cli.js report",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.1"
+  }
+}

@@ -1,0 +1,2598 @@
+{
+  "meta": {
+    "product": "Sobrus Pharma",
+    "team": "Squad Officine",
+    "demo": true,
+    "description": "Données fictives générées pour démontrer Sobrus AI Copilot.",
+    "referenceDate": "2026-10-08",
+    "holidays": [
+      "2026-07-30",
+      "2026-08-14",
+      "2026-08-20",
+      "2026-08-21"
+    ]
+  },
+  "team": [
+    {
+      "id": "yassine",
+      "name": "Yassine",
+      "role": "Développeur back-end"
+    },
+    {
+      "id": "salma",
+      "name": "Salma",
+      "role": "Développeuse front-end"
+    },
+    {
+      "id": "omar",
+      "name": "Omar",
+      "role": "Développeur full-stack"
+    },
+    {
+      "id": "imane",
+      "name": "Imane",
+      "role": "Développeuse mobile"
+    },
+    {
+      "id": "karim",
+      "name": "Karim",
+      "role": "QA"
+    },
+    {
+      "id": "nadia",
+      "name": "Nadia",
+      "role": "Product Owner",
+      "delivery": false
+    },
+    {
+      "id": "hamza",
+      "name": "Hamza",
+      "role": "Scrum Master",
+      "delivery": false
+    }
+  ],
+  "sprints": [
+    {
+      "id": "S1",
+      "name": "Sprint 1",
+      "status": "closed",
+      "start": "2026-07-23",
+      "end": "2026-08-05",
+      "goal": "Fluidifier l’encaissement au comptoir (paiements multiples + tickets)",
+      "absences": {},
+      "issues": [
+        {
+          "key": "PHA-101",
+          "title": "Encaissement multi-moyens de paiement (espèces + carte)",
+          "type": "story",
+          "points": 8,
+          "epic": "Ventes comptoir",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-07-23",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-07-23",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-07-31",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-03",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-08-03",
+              "author": "karim",
+              "text": "Validé avec la pharmacie pilote, RAS"
+            }
+          ]
+        },
+        {
+          "key": "PHA-102",
+          "title": "Ticket de caisse avec QR code de fidélité",
+          "type": "story",
+          "points": 3,
+          "epic": "Ventes comptoir",
+          "assignee": "salma",
+          "goal": true,
+          "addedDate": "2026-07-23",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-07-24",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-07-28",
+              "to": "review"
+            },
+            {
+              "date": "2026-07-29",
+              "to": "done"
+            }
+          ],
+          "blocks": [
+            {
+              "from": "2026-07-24",
+              "to": "2026-07-27",
+              "reason": "Attente maquette du ticket",
+              "dependency": null
+            }
+          ],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-110",
+          "title": "Top 20 des produits vendus",
+          "type": "story",
+          "points": 8,
+          "epic": "Reporting pharmacien",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-07-23",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-07-27",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-07-28",
+              "to": "review"
+            },
+            {
+              "date": "2026-07-29",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-07-29",
+              "author": "yassine",
+              "text": "Revue de code OK"
+            }
+          ]
+        },
+        {
+          "key": "PHA-111",
+          "title": "Vente en attente (mise de côté)",
+          "type": "story",
+          "points": 5,
+          "epic": "Ventes comptoir",
+          "assignee": "imane",
+          "goal": true,
+          "addedDate": "2026-07-23",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-07-23",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-07-24",
+              "to": "review"
+            },
+            {
+              "date": "2026-07-27",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-07-27",
+              "author": "imane",
+              "text": "Testé en recette, RAS"
+            }
+          ]
+        },
+        {
+          "key": "PHA-112",
+          "title": "Retour client et avoir",
+          "type": "story",
+          "points": 5,
+          "epic": "Ventes comptoir",
+          "assignee": "imane",
+          "goal": true,
+          "addedDate": "2026-07-23",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-07-24",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-07-28",
+              "to": "review"
+            },
+            {
+              "date": "2026-07-29",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-07-29",
+              "author": "imane",
+              "text": "Revue de code OK"
+            }
+          ]
+        },
+        {
+          "key": "PHA-113",
+          "title": "Mouvements de stock par lot",
+          "type": "story",
+          "points": 3,
+          "epic": "Stock & inventaire",
+          "assignee": "salma",
+          "goal": false,
+          "addedDate": "2026-07-23",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-07-27",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-07-29",
+              "to": "review"
+            },
+            {
+              "date": "2026-07-31",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-114",
+          "title": "Marge par famille de produits",
+          "type": "story",
+          "points": 2,
+          "epic": "Reporting pharmacien",
+          "assignee": "karim",
+          "goal": false,
+          "addedDate": "2026-07-23",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-07-24",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-07-27",
+              "to": "review"
+            },
+            {
+              "date": "2026-07-28",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-115",
+          "title": "Export mensuel pour le comptable",
+          "type": "story",
+          "points": 8,
+          "epic": "Reporting pharmacien",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-07-23",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-07-24",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-07-28",
+              "to": "review"
+            },
+            {
+              "date": "2026-07-29",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-07-29",
+              "author": "yassine",
+              "text": "Revue de code OK"
+            }
+          ]
+        },
+        {
+          "key": "PHA-116",
+          "title": "Tableau de bord du chiffre d’affaires",
+          "type": "story",
+          "points": 5,
+          "epic": "Reporting pharmacien",
+          "assignee": "salma",
+          "goal": false,
+          "addedDate": "2026-07-23",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-07-24",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-07-28",
+              "to": "review"
+            },
+            {
+              "date": "2026-07-29",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-07-29",
+              "author": "salma",
+              "text": "Déployé en préprod"
+            }
+          ]
+        },
+        {
+          "key": "PHA-117",
+          "title": "Tableau de bord du chiffre d’affaires (v2)",
+          "type": "story",
+          "points": 3,
+          "epic": "Reporting pharmacien",
+          "assignee": "karim",
+          "goal": false,
+          "addedDate": "2026-07-23",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-07-23",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-07-27",
+              "to": "review"
+            },
+            {
+              "date": "2026-07-28",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-07-28",
+              "author": "karim",
+              "text": "Testé en recette, RAS"
+            }
+          ]
+        }
+      ],
+      "review": {
+        "feedback": [
+          {
+            "from": "Pharmacie pilote (Casablanca)",
+            "sentiment": "positive",
+            "text": "L’encaissement mixte fait gagner un temps réel au comptoir."
+          },
+          {
+            "from": "Direction produit",
+            "sentiment": "positive",
+            "text": "Bon rythme, objectif atteint."
+          }
+        ]
+      },
+      "retro": {
+        "actions": [
+          {
+            "id": "A1",
+            "text": "Ajouter les critères d’acceptation avant le Sprint Planning",
+            "owner": "nadia",
+            "status": "done"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S2",
+      "name": "Sprint 2",
+      "status": "closed",
+      "start": "2026-08-06",
+      "end": "2026-08-19",
+      "goal": "Sécuriser le stock : alertes de péremption et inventaire tournant",
+      "absences": {
+        "salma": [
+          "2026-08-17",
+          "2026-08-18"
+        ]
+      },
+      "issues": [
+        {
+          "key": "PHA-201",
+          "title": "Moteur d’alertes de péremption",
+          "type": "story",
+          "points": 8,
+          "epic": "Stock & inventaire",
+          "assignee": "omar",
+          "goal": true,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-06",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-12",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-13",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-210",
+          "title": "Historique des ventes par vendeur",
+          "type": "story",
+          "points": 3,
+          "epic": "Ventes comptoir",
+          "assignee": "salma",
+          "goal": false,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-11",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-12",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-13",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-211",
+          "title": "Inventaire tournant par rayon",
+          "type": "story",
+          "points": 3,
+          "epic": "Stock & inventaire",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-07",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-10",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-11",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-212",
+          "title": "Suivi des reliquats grossiste",
+          "type": "bug",
+          "points": 1,
+          "epic": "Commandes grossistes",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-10",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-11",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-12",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-08-12",
+              "author": "imane",
+              "text": "Déployé en préprod"
+            }
+          ]
+        },
+        {
+          "key": "PHA-213",
+          "title": "Ajustement d’inventaire avec motif",
+          "type": "story",
+          "points": 5,
+          "epic": "Stock & inventaire",
+          "assignee": "omar",
+          "goal": false,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-07",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-11",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-12",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-214",
+          "title": "Ticket de caisse personnalisé",
+          "type": "story",
+          "points": 3,
+          "epic": "Ventes comptoir",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-07",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-11",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-12",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-215",
+          "title": "Raccourcis clavier en caisse",
+          "type": "story",
+          "points": 5,
+          "epic": "Ventes comptoir",
+          "assignee": "karim",
+          "goal": false,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-11",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-13",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-17",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-08-17",
+              "author": "karim",
+              "text": "Déployé en préprod"
+            }
+          ]
+        },
+        {
+          "key": "PHA-216",
+          "title": "Seuils de réapprovisionnement",
+          "type": "story",
+          "points": 3,
+          "epic": "Stock & inventaire",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-10",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-12",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-13",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-217",
+          "title": "Alertes de péremption à 90 jours",
+          "type": "story",
+          "points": 5,
+          "epic": "Stock & inventaire",
+          "assignee": "omar",
+          "goal": true,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-11",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-13",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-17",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-218",
+          "title": "Import du référentiel produits",
+          "type": "story",
+          "points": 3,
+          "epic": "Stock & inventaire",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-10",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-12",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-13",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-08-13",
+              "author": "imane",
+              "text": "PR ouverte"
+            }
+          ]
+        },
+        {
+          "key": "PHA-219",
+          "title": "Recherche produit par code-barres",
+          "type": "bug",
+          "points": 3,
+          "epic": "Ventes comptoir",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-08-06",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-07",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-11",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-12",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        }
+      ],
+      "review": {
+        "feedback": [
+          {
+            "from": "Pharmacie pilote (Rabat)",
+            "sentiment": "positive",
+            "text": "Les alertes de péremption évitent des pertes, très attendu."
+          }
+        ]
+      },
+      "retro": {
+        "actions": [
+          {
+            "id": "A2",
+            "text": "Pair review systématique sur les stories de plus de 5 points",
+            "owner": "omar",
+            "status": "done"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S3",
+      "name": "Sprint 3",
+      "status": "closed",
+      "start": "2026-08-20",
+      "end": "2026-09-02",
+      "goal": "Démarrer l’intégration Tiers payant AMO",
+      "absences": {},
+      "issues": [
+        {
+          "key": "PHA-301",
+          "title": "Connexion à l’API partenaire tiers payant (authentification)",
+          "type": "story",
+          "points": 8,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-08-24",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-24",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-01",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-02",
+              "to": "done"
+            }
+          ],
+          "blocks": [
+            {
+              "from": "2026-08-25",
+              "to": "2026-08-28",
+              "reason": "Accès sandbox non fourni par le partenaire",
+              "dependency": "API partenaire Tiers Payant"
+            }
+          ],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-08-26",
+              "author": "yassine",
+              "text": "On attend toujours les identifiants sandbox du partenaire"
+            },
+            {
+              "date": "2026-08-28",
+              "author": "hamza",
+              "text": "Relancé le partenaire par mail et téléphone"
+            }
+          ]
+        },
+        {
+          "key": "PHA-302",
+          "title": "Calcul de la part assuré / part AMO",
+          "type": "story",
+          "points": 5,
+          "epic": "Tiers payant",
+          "assignee": "omar",
+          "goal": true,
+          "addedDate": "2026-08-24",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-26",
+              "to": "in_progress"
+            }
+          ],
+          "blocks": [
+            {
+              "from": "2026-08-27",
+              "to": null,
+              "reason": "Barèmes AMO non communiqués par le partenaire",
+              "dependency": "API partenaire Tiers Payant"
+            }
+          ],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-08-31",
+              "author": "omar",
+              "text": "Toujours en attente des barèmes, je passe sur autre chose"
+            }
+          ]
+        },
+        {
+          "key": "PHA-310",
+          "title": "Ajustement d’inventaire avec motif (v2)",
+          "type": "story",
+          "points": 2,
+          "epic": "Stock & inventaire",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-08-24",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-27",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-31",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-01",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-311",
+          "title": "Seuils de réapprovisionnement (v2)",
+          "type": "bug",
+          "points": 1,
+          "epic": "Stock & inventaire",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-08-24",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-26",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-28",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-31",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-312",
+          "title": "Comparatif des prix grossistes",
+          "type": "story",
+          "points": 8,
+          "epic": "Commandes grossistes",
+          "assignee": "omar",
+          "goal": false,
+          "addedDate": "2026-08-24",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-26",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-31",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-01",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-01",
+              "author": "omar",
+              "text": "Maquette validée avec Nadia"
+            }
+          ]
+        },
+        {
+          "key": "PHA-313",
+          "title": "Inventaire tournant par rayon (v2)",
+          "type": "story",
+          "points": 3,
+          "epic": "Stock & inventaire",
+          "assignee": "karim",
+          "goal": false,
+          "addedDate": "2026-08-24",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-25",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-28",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-31",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-314",
+          "title": "Suivi des rejets organisme",
+          "type": "story",
+          "points": 5,
+          "epic": "Tiers payant",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-08-24",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-25",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-27",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-28",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-08-28",
+              "author": "imane",
+              "text": "Déployé en préprod"
+            }
+          ]
+        },
+        {
+          "key": "PHA-315",
+          "title": "Ajustement d’inventaire avec motif (v2)",
+          "type": "story",
+          "points": 5,
+          "epic": "Stock & inventaire",
+          "assignee": "salma",
+          "goal": false,
+          "addedDate": "2026-08-24",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-24",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-25",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-26",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-08-26",
+              "author": "salma",
+              "text": "Maquette validée avec Nadia"
+            }
+          ]
+        },
+        {
+          "key": "PHA-316",
+          "title": "Inventaire tournant par rayon (v2)",
+          "type": "bug",
+          "points": 1,
+          "epic": "Stock & inventaire",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-08-24",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-08-25",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-08-27",
+              "to": "review"
+            },
+            {
+              "date": "2026-08-28",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-08-28",
+              "author": "imane",
+              "text": "PR ouverte"
+            }
+          ]
+        }
+      ],
+      "review": {
+        "feedback": [
+          {
+            "from": "Direction commerciale",
+            "sentiment": "neutral",
+            "text": "Les pharmaciens attendent le tiers payant avant la rentrée, la date est importante."
+          }
+        ]
+      },
+      "retro": {
+        "actions": [
+          {
+            "id": "A3",
+            "text": "Mettre en place un point hebdomadaire avec le partenaire API",
+            "owner": "hamza",
+            "status": "done"
+          },
+          {
+            "id": "A4",
+            "text": "Limiter le WIP à 2 tickets par personne",
+            "owner": "hamza",
+            "status": "not_started"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S4",
+      "name": "Sprint 4",
+      "status": "closed",
+      "start": "2026-09-03",
+      "end": "2026-09-16",
+      "goal": "Finaliser le tiers payant AMO et la feuille de soins",
+      "absences": {},
+      "issues": [
+        {
+          "key": "PHA-302",
+          "title": "Calcul de la part assuré / part AMO",
+          "type": "story",
+          "points": 5,
+          "epic": "Tiers payant",
+          "assignee": "omar",
+          "goal": true,
+          "addedDate": "2026-09-03",
+          "carriedOver": 1,
+          "history": [
+            {
+              "date": "2026-09-03",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-10",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-11",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-401",
+          "title": "Feuille de soins électronique",
+          "type": "story",
+          "points": 8,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-09-03",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-04",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-15",
+              "to": "review"
+            }
+          ],
+          "blocks": [],
+          "changes": [
+            {
+              "date": "2026-09-07",
+              "field": "points",
+              "from": 5,
+              "to": 8
+            },
+            {
+              "date": "2026-09-09",
+              "field": "acceptance",
+              "from": "v1",
+              "to": "v2 (nouveaux champs mutuelle)"
+            }
+          ],
+          "comments": [
+            {
+              "date": "2026-09-09",
+              "author": "yassine",
+              "text": "Les règles des mutuelles ne sont pas claires, à re-spécifier avec Nadia"
+            },
+            {
+              "date": "2026-09-14",
+              "author": "karim",
+              "text": "Critères d’acceptation modifiés, je dois refaire les cas de test"
+            }
+          ]
+        },
+        {
+          "key": "PHA-402",
+          "title": "Correctif : écart de stock après retour client",
+          "type": "bug",
+          "points": 3,
+          "epic": "Support & maintenance",
+          "assignee": "salma",
+          "goal": false,
+          "addedDate": "2026-09-07",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-07",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-09",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-10",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-07",
+              "author": "nadia",
+              "text": "Urgent : remonté par 3 pharmacies au support"
+            }
+          ]
+        },
+        {
+          "key": "PHA-403",
+          "title": "Correctif : ticket non imprimé sur imprimante thermique",
+          "type": "bug",
+          "points": 2,
+          "epic": "Support & maintenance",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-09-09",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-09",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-10",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-11",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-404",
+          "title": "Export comptable mensuel (demande client)",
+          "type": "story",
+          "points": 3,
+          "epic": "Reporting pharmacien",
+          "assignee": "omar",
+          "goal": false,
+          "addedDate": "2026-09-11",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-11",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-15",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-16",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-11",
+              "author": "nadia",
+              "text": "Demande urgente de la direction pour un client grand compte"
+            }
+          ]
+        },
+        {
+          "key": "PHA-405",
+          "title": "Correctif : arrondi de la part mutuelle",
+          "type": "bug",
+          "points": 2,
+          "epic": "Tiers payant",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-09-03",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-04",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-08",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-09",
+              "to": "done"
+            },
+            {
+              "date": "2026-09-11",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-15",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-16",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-11",
+              "author": "karim",
+              "text": "Rouvert : régression sur les remises cumulées"
+            }
+          ]
+        },
+        {
+          "key": "PHA-410",
+          "title": "Export mensuel pour le comptable (v2)",
+          "type": "story",
+          "points": 2,
+          "epic": "Reporting pharmacien",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-09-03",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-08",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-10",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-11",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-11",
+              "author": "imane",
+              "text": "Déployé en préprod"
+            }
+          ]
+        },
+        {
+          "key": "PHA-411",
+          "title": "Export mensuel pour le comptable (v2)",
+          "type": "story",
+          "points": 8,
+          "epic": "Reporting pharmacien",
+          "assignee": "omar",
+          "goal": false,
+          "addedDate": "2026-09-03",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-08",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-11",
+              "to": "review"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-11",
+              "author": "omar",
+              "text": "Testé en recette, RAS"
+            }
+          ]
+        },
+        {
+          "key": "PHA-412",
+          "title": "Top 20 des produits vendus (v2)",
+          "type": "story",
+          "points": 2,
+          "epic": "Reporting pharmacien",
+          "assignee": "salma",
+          "goal": false,
+          "addedDate": "2026-09-03",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-03",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-08",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-09",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-09",
+              "author": "salma",
+              "text": "Déployé en préprod"
+            }
+          ]
+        },
+        {
+          "key": "PHA-413",
+          "title": "Export mensuel pour le comptable (v2)",
+          "type": "story",
+          "points": 8,
+          "epic": "Reporting pharmacien",
+          "assignee": "salma",
+          "goal": false,
+          "addedDate": "2026-09-03",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-08",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-11",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-14",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-14",
+              "author": "salma",
+              "text": "Testé en recette, RAS"
+            }
+          ]
+        },
+        {
+          "key": "PHA-414",
+          "title": "Contrôle des droits de l’assuré",
+          "type": "bug",
+          "points": 2,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-09-03",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-07",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-08",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-09",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-09",
+              "author": "yassine",
+              "text": "Déployé en préprod"
+            }
+          ]
+        },
+        {
+          "key": "PHA-415",
+          "title": "Export mensuel pour le comptable (v2)",
+          "type": "story",
+          "points": 5,
+          "epic": "Reporting pharmacien",
+          "assignee": "omar",
+          "goal": false,
+          "addedDate": "2026-09-03",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-08",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-09",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-10",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-10",
+              "author": "omar",
+              "text": "Maquette validée avec Nadia"
+            }
+          ]
+        },
+        {
+          "key": "PHA-416",
+          "title": "Édition du bordereau de facturation",
+          "type": "story",
+          "points": 3,
+          "epic": "Tiers payant",
+          "assignee": "salma",
+          "goal": true,
+          "addedDate": "2026-09-03",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-03",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-07",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-08",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-417",
+          "title": "Affichage prix TTC/HT au comptoir",
+          "type": "story",
+          "points": 3,
+          "epic": "Ventes comptoir",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-09-03",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-03",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-07",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-08",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-08",
+              "author": "imane",
+              "text": "Maquette validée avec Nadia"
+            }
+          ]
+        }
+      ],
+      "review": {
+        "feedback": [
+          {
+            "from": "Pharmacie pilote (Casablanca)",
+            "sentiment": "neutral",
+            "text": "Contents des correctifs, mais la feuille de soins n’est pas encore utilisable."
+          },
+          {
+            "from": "Direction produit",
+            "sentiment": "negative",
+            "text": "Le tiers payant glisse encore d’un sprint."
+          }
+        ]
+      },
+      "retro": {
+        "actions": [
+          {
+            "id": "A5",
+            "text": "Réserver un buffer de 15 % de capacité pour les urgences support",
+            "owner": "nadia",
+            "status": "not_started"
+          },
+          {
+            "id": "A6",
+            "text": "Limiter le WIP à 2 tickets par personne",
+            "owner": "hamza",
+            "status": "not_started"
+          },
+          {
+            "id": "A7",
+            "text": "Clarifier la Definition of Done avec la QA",
+            "owner": "karim",
+            "status": "done"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S5",
+      "name": "Sprint 5",
+      "status": "closed",
+      "start": "2026-09-17",
+      "end": "2026-09-30",
+      "goal": "Mise en production pilote du tiers payant",
+      "absences": {},
+      "issues": [
+        {
+          "key": "PHA-401",
+          "title": "Feuille de soins électronique",
+          "type": "story",
+          "points": 8,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-09-17",
+          "carriedOver": 1,
+          "history": [
+            {
+              "date": "2026-09-17",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-21",
+              "to": "in_progress"
+            }
+          ],
+          "blocks": [],
+          "changes": [
+            {
+              "date": "2026-09-22",
+              "field": "acceptance",
+              "from": "v2",
+              "to": "v3 (format CNSS 2026)"
+            }
+          ],
+          "comments": [
+            {
+              "date": "2026-09-21",
+              "author": "karim",
+              "text": "Retour en dev : le format CNSS a changé"
+            },
+            {
+              "date": "2026-09-25",
+              "author": "yassine",
+              "text": "Pas clair si on doit gérer l’ancien format en parallèle"
+            }
+          ]
+        },
+        {
+          "key": "PHA-501",
+          "title": "Rapprochement des remboursements AMO",
+          "type": "story",
+          "points": 8,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-17",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-29",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-30",
+              "to": "done"
+            }
+          ],
+          "blocks": [
+            {
+              "from": "2026-09-18",
+              "to": "2026-09-25",
+              "reason": "Endpoint de remboursement instable (erreurs 500)",
+              "dependency": "API partenaire Tiers Payant"
+            }
+          ],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-22",
+              "author": "yassine",
+              "text": "On attend toujours le correctif du partenaire"
+            },
+            {
+              "date": "2026-09-24",
+              "author": "hamza",
+              "text": "Escaladé au responsable partenaire"
+            }
+          ]
+        },
+        {
+          "key": "PHA-502",
+          "title": "Tests de bout en bout du tiers payant en recette",
+          "type": "task",
+          "points": 5,
+          "epic": "Tiers payant",
+          "assignee": "karim",
+          "goal": true,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-21",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-30",
+              "to": "review"
+            }
+          ],
+          "blocks": [
+            {
+              "from": "2026-09-22",
+              "to": "2026-09-28",
+              "reason": "Recette indisponible (base non synchronisée)",
+              "dependency": "Environnement de recette"
+            }
+          ],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-23",
+              "author": "karim",
+              "text": "Recette encore cassée, je suis bloqué"
+            }
+          ]
+        },
+        {
+          "key": "PHA-503",
+          "title": "Règles de prise en charge des mutuelles privées",
+          "type": "story",
+          "points": 8,
+          "epic": "Tiers payant",
+          "assignee": "omar",
+          "goal": true,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-18",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-30",
+              "to": "review"
+            }
+          ],
+          "blocks": [],
+          "changes": [
+            {
+              "date": "2026-09-21",
+              "field": "points",
+              "from": 3,
+              "to": 5
+            },
+            {
+              "date": "2026-09-24",
+              "field": "points",
+              "from": 5,
+              "to": 8
+            },
+            {
+              "date": "2026-09-25",
+              "field": "acceptance",
+              "from": "v1",
+              "to": "v2"
+            }
+          ],
+          "comments": [
+            {
+              "date": "2026-09-24",
+              "author": "omar",
+              "text": "Le besoin a encore changé, il faut re-spécifier les plafonds"
+            }
+          ]
+        },
+        {
+          "key": "PHA-504",
+          "title": "Correctif : blocage caisse en fin de journée",
+          "type": "bug",
+          "points": 3,
+          "epic": "Support & maintenance",
+          "assignee": "salma",
+          "goal": false,
+          "addedDate": "2026-09-22",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-22",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-23",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-24",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-22",
+              "author": "nadia",
+              "text": "Urgent : client grand compte impacté"
+            }
+          ]
+        },
+        {
+          "key": "PHA-505",
+          "title": "Correctif : synchronisation hors ligne",
+          "type": "bug",
+          "points": 3,
+          "epic": "Support & maintenance",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-09-24",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-24",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-25",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-28",
+              "to": "done"
+            },
+            {
+              "date": "2026-09-29",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-30",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-29",
+              "author": "karim",
+              "text": "Rouvert : régression constatée chez un client"
+            }
+          ]
+        },
+        {
+          "key": "PHA-510",
+          "title": "Bon de commande automatique",
+          "type": "story",
+          "points": 8,
+          "epic": "Commandes grossistes",
+          "assignee": "karim",
+          "goal": false,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-21",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-23",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-29",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-29",
+              "author": "karim",
+              "text": "PR ouverte"
+            }
+          ]
+        },
+        {
+          "key": "PHA-511",
+          "title": "Remise automatique sur promotions",
+          "type": "bug",
+          "points": 1,
+          "epic": "Ventes comptoir",
+          "assignee": "omar",
+          "goal": false,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-21",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-28",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-29",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-512",
+          "title": "Vente en attente (mise de côté) (v2)",
+          "type": "story",
+          "points": 3,
+          "epic": "Ventes comptoir",
+          "assignee": "salma",
+          "goal": false,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-513",
+          "title": "Ticket de caisse personnalisé (v2)",
+          "type": "story",
+          "points": 5,
+          "epic": "Ventes comptoir",
+          "assignee": "karim",
+          "goal": false,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-25",
+              "to": "in_progress"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-25",
+              "author": "karim",
+              "text": "Déployé en préprod"
+            }
+          ]
+        },
+        {
+          "key": "PHA-514",
+          "title": "Mise à jour des dépendances front",
+          "type": "bug",
+          "points": 1,
+          "epic": "Support & maintenance",
+          "assignee": "omar",
+          "goal": false,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-515",
+          "title": "Correctif : lenteur de la recherche produit",
+          "type": "bug",
+          "points": 3,
+          "epic": "Support & maintenance",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-18",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-09-21",
+              "to": "review"
+            },
+            {
+              "date": "2026-09-28",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-28",
+              "author": "yassine",
+              "text": "Déployé en préprod"
+            }
+          ]
+        },
+        {
+          "key": "PHA-516",
+          "title": "Retour client et avoir (v2)",
+          "type": "story",
+          "points": 8,
+          "epic": "Ventes comptoir",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-25",
+              "to": "in_progress"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-09-25",
+              "author": "imane",
+              "text": "Testé en recette, RAS"
+            }
+          ]
+        },
+        {
+          "key": "PHA-517",
+          "title": "Correctif : arrondi TVA sur ticket",
+          "type": "bug",
+          "points": 1,
+          "epic": "Support & maintenance",
+          "assignee": "imane",
+          "goal": false,
+          "addedDate": "2026-09-17",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-09-22",
+              "to": "in_progress"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        }
+      ],
+      "review": {
+        "feedback": [
+          {
+            "from": "Direction générale",
+            "sentiment": "negative",
+            "text": "Pilote décalé : la direction s’interroge sur la date de mise en production."
+          },
+          {
+            "from": "Pharmacie pilote (Rabat)",
+            "sentiment": "neutral",
+            "text": "Nous restons motivés mais avons besoin d’une date fiable."
+          }
+        ]
+      },
+      "retro": {
+        "actions": [
+          {
+            "id": "A8",
+            "text": "Escalader les blocages partenaires sous 24h",
+            "owner": "hamza",
+            "status": "in_progress"
+          },
+          {
+            "id": "A9",
+            "text": "Limiter le WIP à 2 tickets par personne",
+            "owner": "hamza",
+            "status": "not_started"
+          },
+          {
+            "id": "A10",
+            "text": "Stabiliser l’environnement de recette",
+            "owner": "omar",
+            "status": "in_progress"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S6",
+      "name": "Sprint 6",
+      "status": "active",
+      "start": "2026-10-01",
+      "end": "2026-10-14",
+      "goal": "Ouvrir le tiers payant à 3 pharmacies pilotes",
+      "absences": {
+        "imane": [
+          "2026-10-09",
+          "2026-10-12",
+          "2026-10-13",
+          "2026-10-14"
+        ]
+      },
+      "issues": [
+        {
+          "key": "PHA-401",
+          "title": "Feuille de soins électronique",
+          "type": "story",
+          "points": 8,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-10-01",
+          "carriedOver": 2,
+          "history": [
+            {
+              "date": "2026-10-01",
+              "to": "in_progress"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-10-06",
+              "author": "yassine",
+              "text": "Toujours pas clair pour l’ancien format, en attente de Nadia"
+            }
+          ]
+        },
+        {
+          "key": "PHA-503",
+          "title": "Règles de prise en charge des mutuelles privées",
+          "type": "story",
+          "points": 8,
+          "epic": "Tiers payant",
+          "assignee": "omar",
+          "goal": true,
+          "addedDate": "2026-10-01",
+          "carriedOver": 1,
+          "history": [
+            {
+              "date": "2026-10-01",
+              "to": "review"
+            },
+            {
+              "date": "2026-10-06",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-601",
+          "title": "Passage en production de l’API partenaire",
+          "type": "story",
+          "points": 5,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-10-01",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-10-01",
+              "to": "in_progress"
+            }
+          ],
+          "blocks": [
+            {
+              "from": "2026-10-02",
+              "to": null,
+              "reason": "Certificat de production non délivré par le partenaire",
+              "dependency": "API partenaire Tiers Payant"
+            }
+          ],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-10-05",
+              "author": "yassine",
+              "text": "On attend toujours le certificat de prod"
+            },
+            {
+              "date": "2026-10-07",
+              "author": "hamza",
+              "text": "Relancé, pas de date annoncée par le partenaire"
+            }
+          ]
+        },
+        {
+          "key": "PHA-602",
+          "title": "Paramétrage des 3 pharmacies pilotes",
+          "type": "task",
+          "points": 3,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-10-01",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-10-01",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-10-05",
+              "to": "review"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-10-05",
+              "author": "yassine",
+              "text": "En attente de revue"
+            }
+          ]
+        },
+        {
+          "key": "PHA-603",
+          "title": "Formation des pharmaciens pilotes (support + guide)",
+          "type": "task",
+          "points": 3,
+          "epic": "Tiers payant",
+          "assignee": "imane",
+          "goal": true,
+          "addedDate": "2026-10-01",
+          "carriedOver": 0,
+          "history": [],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-604",
+          "title": "Correctif : remise fidélité non appliquée",
+          "type": "bug",
+          "points": 2,
+          "epic": "Support & maintenance",
+          "assignee": "salma",
+          "goal": false,
+          "addedDate": "2026-10-05",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-10-05",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-10-07",
+              "to": "review"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-10-05",
+              "author": "nadia",
+              "text": "Urgent : remonté par le support"
+            }
+          ]
+        },
+        {
+          "key": "PHA-610",
+          "title": "Remise automatique sur promotions (v2)",
+          "type": "story",
+          "points": 3,
+          "epic": "Ventes comptoir",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-10-01",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-10-02",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-10-06",
+              "to": "review"
+            },
+            {
+              "date": "2026-10-07",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-611",
+          "title": "Ajustement d’inventaire avec motif (v2)",
+          "type": "story",
+          "points": 2,
+          "epic": "Stock & inventaire",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-10-01",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-10-06",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-10-08",
+              "to": "review"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-612",
+          "title": "Retour client et avoir (v2)",
+          "type": "bug",
+          "points": 2,
+          "epic": "Ventes comptoir",
+          "assignee": "karim",
+          "goal": false,
+          "addedDate": "2026-10-01",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-10-07",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-10-08",
+              "to": "review"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        },
+        {
+          "key": "PHA-613",
+          "title": "Paramétrage des organismes (AMO, mutuelles)",
+          "type": "story",
+          "points": 3,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-10-01",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-10-07",
+              "to": "in_progress"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-10-07",
+              "author": "yassine",
+              "text": "Testé en recette, RAS"
+            }
+          ]
+        },
+        {
+          "key": "PHA-614",
+          "title": "Inventaire tournant par rayon (v2)",
+          "type": "bug",
+          "points": 3,
+          "epic": "Stock & inventaire",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-10-01",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-10-05",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-10-07",
+              "to": "review"
+            },
+            {
+              "date": "2026-10-08",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-10-08",
+              "author": "yassine",
+              "text": "Maquette validée avec Nadia"
+            }
+          ]
+        },
+        {
+          "key": "PHA-615",
+          "title": "Édition du bordereau de facturation (v2)",
+          "type": "story",
+          "points": 3,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": true,
+          "addedDate": "2026-10-01",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-10-01",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-10-06",
+              "to": "review"
+            },
+            {
+              "date": "2026-10-07",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": [
+            {
+              "date": "2026-10-07",
+              "author": "yassine",
+              "text": "PR ouverte"
+            }
+          ]
+        },
+        {
+          "key": "PHA-616",
+          "title": "Paramétrage des organismes (AMO, mutuelles) (v2)",
+          "type": "story",
+          "points": 8,
+          "epic": "Tiers payant",
+          "assignee": "yassine",
+          "goal": false,
+          "addedDate": "2026-10-01",
+          "carriedOver": 0,
+          "history": [
+            {
+              "date": "2026-10-01",
+              "to": "in_progress"
+            },
+            {
+              "date": "2026-10-07",
+              "to": "review"
+            },
+            {
+              "date": "2026-10-08",
+              "to": "done"
+            }
+          ],
+          "blocks": [],
+          "changes": [],
+          "comments": []
+        }
+      ],
+      "review": null,
+      "retro": null
+    }
+  ],
+  "nextSprint": {
+    "id": "S7",
+    "name": "Sprint 7",
+    "start": "2026-10-15",
+    "end": "2026-10-28",
+    "absences": {
+      "omar": [
+        "2026-10-19",
+        "2026-10-20",
+        "2026-10-21"
+      ],
+      "karim": [
+        "2026-10-26"
+      ]
+    }
+  },
+  "backlog": [
+    {
+      "key": "PHA-701",
+      "title": "Télétransmission des feuilles de soins AMO",
+      "epic": "Tiers payant",
+      "points": 13,
+      "priority": 1,
+      "acceptanceCriteria": true,
+      "dependency": "API partenaire Tiers Payant",
+      "dependencyConfirmed": false
+    },
+    {
+      "key": "PHA-702",
+      "title": "Gestion des rejets AMO",
+      "epic": "Tiers payant",
+      "points": 8,
+      "priority": 2,
+      "acceptanceCriteria": false,
+      "dependency": "API partenaire Tiers Payant",
+      "dependencyConfirmed": false
+    },
+    {
+      "key": "PHA-703",
+      "title": "Alertes de rupture grossiste",
+      "epic": "Commandes grossistes",
+      "points": 5,
+      "priority": 3,
+      "acceptanceCriteria": true
+    },
+    {
+      "key": "PHA-704",
+      "title": "Refonte de l’écran d’inventaire mobile",
+      "epic": "Stock & inventaire",
+      "points": null,
+      "priority": 4,
+      "acceptanceCriteria": false
+    },
+    {
+      "key": "PHA-705",
+      "title": "Performance de la recherche produit (indexation)",
+      "epic": "Ventes comptoir",
+      "points": 5,
+      "priority": 5,
+      "acceptanceCriteria": true
+    },
+    {
+      "key": "PHA-706",
+      "title": "Paramétrage des mutuelles privées (vague 2)",
+      "epic": "Tiers payant",
+      "points": 8,
+      "priority": 6,
+      "acceptanceCriteria": false,
+      "notes": "Règles de prise en charge à confirmer avec les mutuelles"
+    },
+    {
+      "key": "PHA-707",
+      "title": "Export des ventes pour le comptable (CSV)",
+      "epic": "Reporting pharmacien",
+      "points": 3,
+      "priority": 7,
+      "acceptanceCriteria": true
+    }
+  ]
+}
