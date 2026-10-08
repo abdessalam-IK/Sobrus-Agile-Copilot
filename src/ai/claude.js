@@ -76,15 +76,20 @@ function findClaudeBinary() {
     execSync(process.platform === 'win32' ? 'where claude' : 'command -v claude', { stdio: 'ignore' });
     return 'claude';
   } catch { /* pas dans le PATH */ }
-  const bundled = process.env.APPDATA && path.join(process.env.APPDATA, 'Claude', 'claude-code');
-  if (bundled && existsSync(bundled)) {
-    const candidates = readdirSync(bundled)
-      .flatMap((v) => (statSync(path.join(bundled, v)).isDirectory() ? readdirSync(path.join(bundled, v)).map((h) => path.join(bundled, v, h, 'claude.exe')) : []))
-      .filter((p) => existsSync(p))
-      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-    if (candidates.length) return candidates[0];
+  // L'application Windows est un package MSIX : son AppData\Roaming est redirigé vers
+  // %LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming hors de l'application.
+  const roots = [];
+  if (process.env.APPDATA) roots.push(path.join(process.env.APPDATA, 'Claude', 'claude-code'));
+  const packages = process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Packages');
+  if (packages && existsSync(packages)) {
+    for (const p of readdirSync(packages).filter((d) => /^Claude_/i.test(d))) roots.push(path.join(packages, p, 'LocalCache', 'Roaming', 'Claude', 'claude-code'));
   }
-  return null;
+  const candidates = roots
+    .filter((r) => existsSync(r))
+    .flatMap((r) => readdirSync(r).flatMap((v) => (statSync(path.join(r, v)).isDirectory() ? readdirSync(path.join(r, v)).map((h) => path.join(r, v, h, 'claude.exe')) : [])))
+    .filter((p) => existsSync(p))
+    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  return candidates[0] || null;
 }
 const hasApiKey = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
 let cliCache = null;
