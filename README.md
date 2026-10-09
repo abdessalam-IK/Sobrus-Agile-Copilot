@@ -50,10 +50,21 @@ Couche IA générative : [src/ai/claude.js](src/ai/claude.js) — reçoit unique
 
 ## Interface
 
-- **Barre « cycle Agile »** : chaque étape mène à la vue correspondante ; l'étape courante est déduite de la date.
-- **Curseur « Rejouer au jour N »** : remonter dans le temps pour voir ce que le Copilot aurait signalé au jour 3, 5, 7…
-- **5 onglets** = 5 briques. Dans « Préparer », chaque cérémonie peut être rédigée par Claude.
-- **Votes 👍/👎** sur les signaux (onglet « Comprendre ») : la mémoire d'apprentissage est visible dans « Apprendre ».
+Un seul menu, dans l'ordre où l'on en a besoin au fil du sprint. Le badge **« conseillé »** indique la page utile au moment présent.
+
+| Groupe | Page | À quoi elle sert | Brique |
+|---|---|---|---|
+| Pendant le sprint | **Vue d'ensemble** | L'essentiel en 30 secondes : signaux prioritaires, lecture transverse, recommandations | THINK |
+| | **Daily** | Ce qui a bougé, ce qui bloque, les questions à poser | PREPARE |
+| | **Sprint** | Indicateurs, board, burndown, charge par personne | OBSERVE |
+| | **Signaux & risques** | Chaque signal avec ses preuves (votes 👍/👎) et le registre des risques | UNDERSTAND |
+| Fin de sprint | **Sprint Review** · **Rétrospective** · **Prochain Planning** | Préparation de chaque cérémonie | PREPARE |
+| Prendre du recul | **Tendances** | Ce qui change de sprint en sprint | LEARN |
+| | **Rapport** | Export Markdown | PREPARE |
+
+- **↻ Synchroniser Linear** (en haut à droite) : rafraîchit Linear et les Sheets en ~20 s. La date passe en orange si les données ne sont pas du jour.
+- **« Voir le sprint au jour N »** : remonter dans le temps pour voir ce que le Copilot aurait signalé ce jour-là.
+- **Boutons ✦ Claude** : rédaction de chaque préparation avec votre siège Claude (Claude Code), sans clé API.
 
 ## Ligne de commande
 

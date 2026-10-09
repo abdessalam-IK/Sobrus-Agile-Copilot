@@ -49,6 +49,12 @@ async function route(req, res) {
   if (req.method === 'GET' && parts[1] === 'report' && parts[2]) {
     return send(res, 200, runAnalysis(parts[2].replace(/\.md$/, ''), asOf).report, 'text/markdown; charset=utf-8');
   }
+  if (req.method === 'POST' && parts[1] === 'sync') {
+    const { syncLinear } = await import('./src/sync.js');
+    const current = loadDataset();
+    if (current.meta?.source !== 'linear') return send(res, 400, { error: 'Le jeu de données actuel ne provient pas de Linear.' });
+    return send(res, 200, await syncLinear({ teamKey: current.meta.teamKey }));
+  }
   if (req.method === 'GET' && parts[1] === 'feedback') return send(res, 200, loadFeedback());
   if (req.method === 'POST' && parts[1] === 'feedback') return send(res, 200, recordFeedback(await readBody(req)));
   if (req.method === 'POST' && parts[1] === 'ai' && parts[2]) {

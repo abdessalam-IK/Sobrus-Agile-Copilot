@@ -20,28 +20,22 @@
         <span>Sprint</span>
         <select id="sprint-select"></select>
       </label>
-      <label class="field slider">
-        <span>Rejouer au jour <b id="day-label">—</b></span>
+      <label class="field slider" title="Remonter dans le temps : voir ce que le Copilot aurait signalé ce jour-là du sprint">
+        <span>Voir le sprint au jour <b id="day-label">—</b></span>
         <input type="range" id="day-slider" min="1" max="10" value="10" />
       </label>
+      <div class="sync" id="sync" hidden>
+        <button class="btn ghost" id="sync-btn" type="button">↻ Synchroniser Linear</button>
+        <span class="small muted" id="sync-label"></span>
+      </div>
       <span class="ai-badge" id="ai-badge" title="Couche IA générative">IA —</span>
     </div>
   </header>
 
-  <nav class="flow" id="flow" aria-label="Cycle Agile"></nav>
-
   <main>
     <section class="hero" id="hero"></section>
 
-    <div class="layers">
-      <span class="layer-label">Agile delivery</span>
-      <span class="arrow">↓</span>
-      <span class="layer-label ai">AI layer</span>
-      <span class="arrow">→</span>
-      <span class="pipeline">Insights → Risques → Recommandations → Préparation → Apprentissage</span>
-    </div>
-
-    <nav class="tabs" id="tabs" role="tablist"></nav>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Navigation"></nav>
     <section id="view" class="view" aria-live="polite"></section>
   </main>
 

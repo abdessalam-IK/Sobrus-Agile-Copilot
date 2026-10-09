@@ -7,33 +7,28 @@ const r1 = (x) => (x == null ? '—' : String(Math.round(x * 10) / 10).replace('
 const r2 = (x) => (x == null ? '—' : String(Math.round(x * 100) / 100).replace('.', ','));
 const dm = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '');
 
-const state = { summary: null, config: null, sprintId: null, asOf: null, maxDay: {}, data: null, tab: 'think', prep: 'daily', ai: {}, voted: new Set() };
+const state = { summary: null, config: null, sprintId: null, asOf: null, maxDay: {}, data: null, tab: 'overview', ai: {}, voted: new Set() };
 
-const TABS = [
-  { id: 'observe', num: '01', label: 'Observer', sub: 'Données du sprint' },
-  { id: 'understand', num: '02', label: 'Comprendre', sub: 'Patterns & signaux faibles' },
-  { id: 'think', num: '03', label: 'Penser', sub: 'Insights & risques' },
-  { id: 'prepare', num: '04', label: 'Préparer', sub: 'Cérémonies & reporting' },
-  { id: 'learn', num: '05', label: 'Apprendre', sub: 'Sprint après sprint' },
+// Un seul menu, dans l'ordre où l'on en a besoin au fil du sprint.
+const PAGES = [
+  { id: 'overview', group: 'Pendant le sprint', label: 'Vue d’ensemble', sub: 'L’essentiel en 30 secondes', intro: 'Ce que le Copilot retient du sprint : les signaux qui méritent votre attention, ce qu’ils racontent ensemble et les pistes d’action. Commencez toujours par ici.' },
+  { id: 'daily', group: 'Pendant le sprint', label: 'Daily', sub: 'Préparer le point du jour', intro: 'À ouvrir 5 minutes avant le Daily : ce qui a bougé depuis hier, ce qui est bloqué ou immobile, et les questions à poser à l’équipe.' },
+  { id: 'sprint', group: 'Pendant le sprint', label: 'Sprint', sub: 'Board, burndown, charge', intro: 'Les données du sprint telles que le Copilot les lit dans Linear : indicateurs, board, burndown et charge par personne.' },
+  { id: 'signals', group: 'Pendant le sprint', label: 'Signaux & risques', sub: 'Le détail, avec les preuves', intro: 'Chaque signal détecté, avec ses preuves, puis le registre des risques. Votez 👍 ou 👎 : le Copilot apprend ce qui vous est utile.' },
+  { id: 'review', group: 'Fin de sprint', label: 'Sprint Review', sub: 'Préparer la démo', intro: 'Ce qui est livré, ce qui ne l’est pas et pourquoi, l’ordre de démo et les questions pour les parties prenantes.' },
+  { id: 'retro', group: 'Fin de sprint', label: 'Rétrospective', sub: 'Préparer l’atelier', intro: 'Un format adapté à ce sprint, la chronologie des événements, les données à montrer et le suivi des actions précédentes.' },
+  { id: 'planning', group: 'Fin de sprint', label: 'Prochain Planning', sub: 'Capacité et points à challenger', intro: 'La capacité du prochain sprint (congés et jours fériés inclus), une fourchette d’engagement réaliste et les tickets à challenger.' },
+  { id: 'trends', group: 'Prendre du recul', label: 'Tendances', sub: 'Ce qui change de sprint en sprint', intro: 'La comparaison des sprints : qu’est-ce qui est en train de changer dans votre manière de travailler ?' },
+  { id: 'report', group: 'Prendre du recul', label: 'Rapport', sub: 'Exporter en Markdown', intro: 'Le rapport complet du sprint, à copier ou à télécharger.' },
 ];
-const PREP = [
-  { id: 'daily', label: 'Daily' },
-  { id: 'review', label: 'Sprint Review' },
-  { id: 'retro', label: 'Rétrospective' },
-  { id: 'planning', label: 'Prochain Planning' },
-  { id: 'report', label: 'Rapport' },
-];
-const FLOW = [
-  { id: 'backlog', label: 'Backlog', go: ['prepare', 'planning', 'candidates'] },
-  { id: 'planning', label: 'Sprint Planning', go: ['observe', null, 'commit'] },
-  { id: 'sprint', label: 'Sprint', go: ['observe', null, 'board'] },
-  { id: 'daily', label: 'Daily', go: ['prepare', 'daily'] },
-  { id: 'metrics', label: 'Metrics', go: ['observe', null, 'kpis'] },
-  { id: 'risks', label: 'Risks', go: ['think', null, 'risks'] },
-  { id: 'review', label: 'Sprint Review', go: ['prepare', 'review'] },
-  { id: 'retro', label: 'Rétrospective', go: ['prepare', 'retro'] },
-  { id: 'next', label: 'Next Sprint', go: ['prepare', 'planning'] },
-];
+
+/** Pages conseillées selon le moment du sprint. */
+function recommendedPages(o) {
+  if (o.closed) return ['review', 'retro', 'planning'];
+  if (o.dayIndex >= o.totalDays - 1) return ['review', 'planning'];
+  return ['daily'];
+}
+
 const STATUS = { todo: 'À faire', in_progress: 'En cours', review: 'En revue', done: 'Terminé' };
 const LEVEL_COLOR = { critical: 'var(--critical)', attention: 'var(--attention)', watch: 'var(--watch)', info: 'var(--info)' };
 
@@ -58,6 +53,9 @@ async function init() {
   badge.textContent = state.config.ai.configured ? `IA générative : ${state.config.ai.model}` : 'IA générative : non configurée';
   badge.classList.toggle('on', state.config.ai.configured);
 
+  renderSync();
+  $('#sync-btn').addEventListener('click', syncNow);
+
   const sel = $('#sprint-select');
   sel.innerHTML = sprints.map((s) => `<option value="${s.id}">${esc(s.name)} — ${s.status === 'active' ? 'en cours' : 'terminé'} (${dm(s.start)} → ${dm(s.end)})</option>`).join('');
   state.sprintId = (sprints.find((s) => s.status === 'active') || sprints.at(-1)).id;
@@ -66,6 +64,43 @@ async function init() {
   $('#day-slider').addEventListener('input', (e) => { $('#day-label').textContent = `${e.target.value}/${state.data.observe.totalDays}`; });
   $('#day-slider').addEventListener('change', (e) => { state.asOf = state.data.observe.days[Number(e.target.value) - 1]; load(); });
   await load();
+}
+
+/** Date de la dernière synchronisation Linear, en évidence si elle ne date pas d'aujourd'hui. */
+function renderSync() {
+  const { meta } = state.summary;
+  $('#sync').hidden = meta.source !== 'linear';
+  if (meta.source !== 'linear') return;
+  const at = new Date(meta.syncedAt);
+  const today = new Date().toDateString() === at.toDateString();
+  const label = $('#sync-label');
+  label.textContent = `Données du ${at.toLocaleDateString('fr-FR')} à ${at.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+  label.classList.toggle('stale', !today);
+  label.title = today ? '' : 'Les données ne sont pas à jour : cliquez sur « Synchroniser Linear ».';
+}
+
+async function syncNow() {
+  const btn = $('#sync-btn');
+  btn.disabled = true;
+  btn.textContent = 'Synchronisation… (≈ 20 s)';
+  try {
+    await api('/api/sync', { method: 'POST' });
+    state.summary = await api('/api/summary');
+    const active = state.summary.sprints.find((s) => s.status === 'active') || state.summary.sprints.at(-1);
+    const sel = $('#sprint-select');
+    sel.innerHTML = state.summary.sprints.map((s) => `<option value="${s.id}">${esc(s.name)} — ${s.status === 'active' ? 'en cours' : 'terminé'} (${dm(s.start)} → ${dm(s.end)})</option>`).join('');
+    if (!state.summary.sprints.some((s) => s.id === state.sprintId)) state.sprintId = active.id;
+    sel.value = state.sprintId;
+    state.asOf = null;
+    state.ai = {};
+    renderSync();
+    await load();
+  } catch (err) {
+    alert(`Synchronisation impossible : ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ Synchroniser Linear';
+  }
 }
 
 async function load() {
@@ -80,32 +115,38 @@ async function load() {
   render();
 }
 
-function navigate(tab, prep, anchor) {
-  state.tab = tab;
-  if (prep) state.prep = prep;
-  render();
-  if (anchor) document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 // ---------------------------------------------------------------------------
 // Rendu global
 // ---------------------------------------------------------------------------
 function render() {
-  renderFlow();
   renderHero();
-  $('#tabs').innerHTML = TABS.map((t) => `<button role="tab" class="${t.id === state.tab ? 'active' : ''}" data-tab="${t.id}"><span class="num">${t.num}</span>${t.label}<span class="sub">${t.sub}</span></button>`).join('');
-  $('#tabs').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.tab)));
-  const views = { observe: viewObserve, understand: viewUnderstand, think: viewThink, prepare: viewPrepare, learn: viewLearn };
-  $('#view').innerHTML = views[state.tab]();
+  renderTabs();
+  const p = state.data.prepare;
+  const views = {
+    overview: viewOverview,
+    daily: () => prepDaily(p.daily) + aiBox('daily', 'Rédiger la note du Daily avec Claude'),
+    sprint: viewObserve,
+    signals: viewSignals,
+    review: () => prepReview(p.review) + aiBox('review', 'Rédiger le déroulé de la Review avec Claude'),
+    retro: () => prepRetro(p.retro) + aiBox('retro', 'Rédiger le déroulé de la Rétro avec Claude'),
+    planning: () => prepPlanning(p.planning) + aiBox('planning', 'Rédiger la préparation du Planning avec Claude'),
+    trends: viewLearn,
+    report: viewReport,
+  };
+  const page = PAGES.find((x) => x.id === state.tab);
+  $('#view').innerHTML = `<p class="page-intro">${esc(page.intro)}</p>${views[state.tab]()}`;
   bindView();
 }
 
-function renderFlow() {
-  const o = state.data.observe;
-  const current = o.closed ? 'retro' : o.dayIndex <= 1 ? 'planning' : 'daily';
-  const ci = FLOW.findIndex((f) => f.id === current);
-  $('#flow').innerHTML = FLOW.map((f, i) => `<button class="${i < ci ? 'past' : ''} ${i === ci ? 'current' : ''}" data-i="${i}">${f.label}</button>`).join('<span class="muted" aria-hidden="true">›</span>');
-  $('#flow').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => navigate(...FLOW[b.dataset.i].go)));
+function renderTabs() {
+  const rec = recommendedPages(state.data.observe);
+  const groups = [...new Set(PAGES.map((p) => p.group))];
+  $('#tabs').innerHTML = groups.map((g) => `<div class="tab-group"><div class="tab-group-label">${g}</div><div class="tab-group-items">${PAGES.filter((p) => p.group === g).map((p) => `<button role="tab" aria-selected="${p.id === state.tab}" class="${p.id === state.tab ? 'active' : ''}" data-tab="${p.id}">${p.label}${rec.includes(p.id) ? '<span class="rec" title="Conseillé à ce moment du sprint">conseillé</span>' : ''}<span class="sub">${p.sub}</span></button>`).join('')}</div></div>`).join('');
+  $('#tabs').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    state.tab = b.dataset.tab;
+    render();
+    $('#tabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
 }
 
 function gauge(value, label) {
@@ -186,7 +227,7 @@ function velocityChart(series) {
 }
 
 // ---------------------------------------------------------------------------
-// 01 — Observer
+// Page « Sprint »
 // ---------------------------------------------------------------------------
 function kpi(label, value, hint = '') {
   return `<div class="kpi"><div class="label">${esc(label)}</div><div class="value">${value}</div><div class="hint">${esc(hint)}</div></div>`;
@@ -216,7 +257,7 @@ function viewObserve() {
   const maxLoad = Math.max(1, ...o.load.map((l) => l.remainingPoints + l.donePoints));
   const committed = o.issues.filter((i) => i.committed);
   return `
-    <div class="section-title" id="kpis"><h2>Ce que le Copilot observe</h2><span class="muted small">Données au ${dm(o.asOf)} · ${o.issues.length} tickets · ${m.personDays} jours-personne</span></div>
+    <div class="section-title" id="kpis"><h2>Indicateurs du sprint</h2><span class="muted small">Données au ${dm(o.asOf)} · ${o.issues.length} tickets · ${m.personDays} jours-personne</span></div>
     <div class="kpis">
       ${kpi('Points terminés', `${m.donePoints}<span class="muted small"> / ${m.scopePoints}</span>`, pct(m.completionRatio))}
       ${kpi('Engagement initial', m.committedPoints, `${committed.length} tickets au Planning`)}
@@ -252,7 +293,7 @@ function viewObserve() {
 }
 
 // ---------------------------------------------------------------------------
-// 02 — Comprendre
+// Page « Signaux & risques »
 // ---------------------------------------------------------------------------
 function signalCard(s) {
   const voted = state.voted.has(s.type);
@@ -276,20 +317,26 @@ function signalCard(s) {
   </div>`;
 }
 
-function viewUnderstand() {
-  const t = state.data.think;
-  if (!t.signals.length) return '<div class="card"><h2>Aucun pattern détecté</h2><p class="muted">Le flux est régulier, sans blocage ni dérive notable.</p></div>';
+function viewSignals() {
+  const { think: t, prepare: p, observe: o } = state.data;
+  const risks = `
+    <div class="section-title" id="risks"><h2>Registre des risques</h2>${o.forecast ? `<span class="muted small">Prévision : ~${Math.round(o.forecast.expectedPoints)} pts livrables (fourchette ${Math.round(o.forecast.p15)}–${Math.round(o.forecast.p85)}) pour ${o.forecast.remainingPoints} restants</span>` : ''}</div>
+    <div class="card"><table><thead><tr><th>Risque</th><th>Probabilité</th><th>Impact</th><th>Mitigation proposée</th><th>Porteur</th></tr></thead><tbody>
+      ${p.risks.map((r) => `<tr><td>${esc(r.title)}</td><td><span class="level ${r.probability === 'Élevée' ? 'critical' : r.probability === 'Moyenne' ? 'attention' : 'watch'}">${r.probability}</span></td><td>${r.impact}</td><td class="small">${esc(r.mitigation)}</td><td class="small">${esc(r.owner)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Aucun risque significatif.</td></tr>'}
+    </tbody></table></div>
+`;
+  if (!t.signals.length) return '<div class="card"><h2>Aucun signal détecté</h2><p class="muted">Le flux est régulier, sans blocage ni dérive notable.</p></div>' + risks;
   return `
-    <div class="section-title"><h2>Patterns détectés</h2><span class="muted small">${t.signals.length} signaux · 17 détecteurs · triés par sévérité</span></div>
-    <p class="muted">Chaque signal est un fait observé avec ses preuves — pas un verdict. Votre retour 👍/👎 ajuste le poids de chaque type de signal pour les prochaines analyses.</p>
-    <div class="grid cols-2">${[0, 1].map((col) => `<div>${t.signals.filter((_, i) => i % 2 === col).map(signalCard).join('')}</div>`).join('')}</div>`;
+    <div class="section-title"><h2>Signaux détectés</h2><span class="muted small">${t.signals.length} signaux · triés par importance</span></div>
+    <div class="grid cols-2">${[0, 1].map((col) => `<div>${t.signals.filter((_, i) => i % 2 === col).map(signalCard).join('')}</div>`).join('')}</div>
+    ${risks}`;
 }
 
 // ---------------------------------------------------------------------------
-// 03 — Penser
+// Page « Vue d’ensemble »
 // ---------------------------------------------------------------------------
-function viewThink() {
-  const { think: t, prepare: p, observe: o } = state.data;
+function viewOverview() {
+  const { think: t } = state.data;
   return `
     ${t.crossReadings.length ? `<div class="card cross"><h2>Ce que les signaux racontent ensemble</h2><ul>${t.crossReadings.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
     <div class="section-title"><h2>Insights par thème</h2><span class="muted small">${t.insights.length} thème(s)</span></div>
@@ -303,15 +350,11 @@ function viewThink() {
     <div class="card"><table><thead><tr><th>Proposition</th><th>Pour qui</th><th>Parce que</th></tr></thead><tbody>
       ${t.recommendations.map((r) => `<tr><td>${esc(r.text)}</td><td class="small">${esc(r.owner)}</td><td class="small muted">${esc(r.because)}</td></tr>`).join('') || '<tr><td colspan="3" class="empty">—</td></tr>'}
     </tbody></table></div>
-    <div class="section-title" id="risks"><h2>Registre des risques</h2>${o.forecast ? `<span class="muted small">Prévision : ~${Math.round(o.forecast.expectedPoints)} pts livrables (fourchette ${Math.round(o.forecast.p15)}–${Math.round(o.forecast.p85)}) pour ${o.forecast.remainingPoints} restants</span>` : ''}</div>
-    <div class="card"><table><thead><tr><th>Risque</th><th>Probabilité</th><th>Impact</th><th>Mitigation proposée</th><th>Porteur</th></tr></thead><tbody>
-      ${p.risks.map((r) => `<tr><td>${esc(r.title)}</td><td><span class="level ${r.probability === 'Élevée' ? 'critical' : r.probability === 'Moyenne' ? 'attention' : 'watch'}">${r.probability}</span></td><td>${r.impact}</td><td class="small">${esc(r.mitigation)}</td><td class="small">${esc(r.owner)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Aucun risque significatif.</td></tr>'}
-    </tbody></table></div>
     ${aiBox('insights', 'Approfondir les insights avec Claude')}`;
 }
 
 // ---------------------------------------------------------------------------
-// 04 — Préparer
+// Pages de préparation (Daily, Review, Rétro, Planning, Rapport)
 // ---------------------------------------------------------------------------
 function list(items, empty = '—') {
   return items.length ? `<ul>${items.map((x) => `<li>${x}</li>`).join('')}</ul>` : `<p class="empty">${empty}</p>`;
@@ -379,23 +422,12 @@ function prepPlanning(p) {
     </div></div>`;
 }
 
-function viewPrepare() {
-  const p = state.data.prepare;
-  const bodies = {
-    daily: () => prepDaily(p.daily),
-    review: () => prepReview(p.review),
-    retro: () => prepRetro(p.retro),
-    planning: () => prepPlanning(p.planning),
-    report: () => `<div class="card"><div class="signal-head"><h3>Rapport de sprint (Markdown)</h3><div class="chips"><button class="btn ghost" id="copy-report">Copier</button><a class="btn" href="/api/report/${state.sprintId}.md${state.asOf ? `?asOf=${state.asOf}` : ''}" download="sobrus-copilot-${state.sprintId}.md">Télécharger .md</a></div></div><pre class="report">${esc(state.data.report)}</pre></div>`,
-  };
-  const aiKind = state.prep === 'report' ? null : state.prep;
-  return `<div class="subtabs">${PREP.map((x) => `<button class="${x.id === state.prep ? 'active' : ''}" data-prep="${x.id}">${x.label}</button>`).join('')}</div>
-    ${bodies[state.prep]()}
-    ${aiKind ? aiBox(aiKind, `Rédiger la préparation « ${PREP.find((x) => x.id === aiKind).label} » avec Claude`) : ''}`;
+function viewReport() {
+  return `<div class="card"><div class="signal-head"><h3>Rapport de sprint (Markdown)</h3><div class="chips"><button class="btn ghost" id="copy-report">Copier</button><a class="btn" href="/api/report/${state.sprintId}.md${state.asOf ? `?asOf=${state.asOf}` : ''}" download="sobrus-copilot-${state.sprintId}.md">Télécharger .md</a></div></div><pre class="report">${esc(state.data.report)}</pre></div>`;
 }
 
 // ---------------------------------------------------------------------------
-// 05 — Apprendre
+// Page « Tendances »
 // ---------------------------------------------------------------------------
 function heat(sev) {
   if (!sev) return '<span class="heat muted">·</span>';
@@ -503,7 +535,6 @@ function md(src) {
 // ---------------------------------------------------------------------------
 function bindView() {
   const view = $('#view');
-  view.querySelectorAll('[data-prep]').forEach((b) => b.addEventListener('click', () => { state.prep = b.dataset.prep; render(); }));
   view.querySelectorAll('[data-ai]').forEach((b) => b.addEventListener('click', () => runAi(b.dataset.ai)));
   view.querySelectorAll('[data-vote]').forEach((b) => b.addEventListener('click', async () => {
     const useful = b.dataset.vote === '1';

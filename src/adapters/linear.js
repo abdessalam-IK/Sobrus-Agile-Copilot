@@ -275,6 +275,7 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
       demo: false,
       source: 'linear',
       syncedAt: new Date().toISOString(),
+      teamKey: team.key,
       referenceDate: localDate(new Date().toISOString()),
       holidays,
       labelConventions: LABELS,
