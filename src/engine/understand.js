@@ -146,7 +146,7 @@ function wipOverload(snap, ctx, names) {
   const out = [];
   const overloaded = snap.load.filter((l) => l.wip > 2);
   const histWip = mean(ctx.previous.map((p) => p.metrics.avgWip).filter((x) => x != null));
-  const teamSize = snap.load.length;
+  const teamSize = snap.load.filter((l) => !l.outside).length;
   const wipNow = snap.issues.filter((i) => ACTIVE_STATUSES.includes(i.status)).length;
   const wipRef = snap.closed ? snap.metrics.avgWip : wipNow;
   if (overloaded.length && wipRef <= teamSize * 1.4) {
@@ -384,10 +384,11 @@ function quality(snap, ctx) {
 /** Concentration de la charge restante sur une personne (+ absences à venir). */
 function concentration(snap, ctx, names) {
   if (snap.closed) return [];
-  const remaining = sum(snap.load, (l) => l.remainingPoints);
+  const devLoad = snap.load.filter((l) => !l.outside); // la concentration ne concerne que les développeurs
+  const remaining = sum(devLoad, (l) => l.remainingPoints);
   if (!remaining) return [];
   const out = [];
-  const top = [...snap.load].sort((a, b) => b.remainingPoints - a.remainingPoints)[0];
+  const top = [...devLoad].sort((a, b) => b.remainingPoints - a.remainingPoints)[0];
   const share = top.remainingPoints / remaining;
   if (share >= 0.4 && top.remainingPoints >= 8) {
     out.push(signal({
@@ -395,7 +396,7 @@ function concentration(snap, ctx, names) {
       severity: 0.2 + share * 0.8,
       title: `${pct(share)} du travail restant repose sur une seule personne (${names(top.member)})`,
       narrative: `${names(top.member)} porte ${top.remainingPoints} des ${remaining} points restants : risque de goulot et de surcharge, et faible partage de connaissance.`,
-      evidence: snap.load.map((l) => `${names(l.member)} : ${l.remainingPoints} pts restants, ${l.wip} en cours`),
+      evidence: devLoad.map((l) => `${names(l.member)} : ${l.remainingPoints} pts restants, ${l.wip} en cours`),
       question: `Qui pourrait reprendre ou faire en binôme une partie des tickets de ${names(top.member)} ?`,
       recommendation: { text: 'Organiser du pairing sur les sujets critiques pour répartir la charge et la connaissance.', owner: 'Équipe' },
     }));

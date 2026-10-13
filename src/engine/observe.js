@@ -69,13 +69,20 @@ function enrich(issue, firstDay, at, elapsedDays, holidays) {
   };
 }
 
-function capacityOf(team, days, absences = {}) {
-  return team
-    .filter((m) => m.delivery !== false)
-    .map((m) => {
-      const off = (absences[m.id] || []).filter((d) => days.includes(d));
-      return { member: m.id, days: days.length - off.length, absences: off };
-    });
+/**
+ * Personnes qui comptent dans la capacité d'un sprint : celles qui livrent (delivery ≠ false)
+ * et, si le sprint le précise, qui font partie de ses `capacityMembers`.
+ */
+export function deliveryMembers(team, sprint) {
+  const ids = sprint?.capacityMembers;
+  return team.filter((m) => m.delivery !== false && (!ids || ids.includes(m.id)));
+}
+
+function capacityOf(team, days, sprint) {
+  return deliveryMembers(team, sprint).map((m) => {
+    const off = (sprint.absences?.[m.id] || []).filter((d) => days.includes(d));
+    return { member: m.id, days: (days.length - off.length) * (m.allocation ?? 1), absences: off };
+  });
 }
 
 export function observeSprint(dataset, sprintId, asOf) {
@@ -101,9 +108,9 @@ export function observeSprint(dataset, sprintId, asOf) {
   const doneCommittedPoints = sum(done.filter((i) => i.committed), pts);
   const scopePoints = sum(issues, pts);
 
-  const capacity = capacityOf(dataset.team, days, sprint.absences);
+  const capacity = capacityOf(dataset.team, days, sprint);
   const personDays = sum(capacity, (c) => c.days);
-  const elapsedPersonDays = sum(capacityOf(dataset.team, elapsedDays, sprint.absences), (c) => c.days);
+  const elapsedPersonDays = sum(capacityOf(dataset.team, elapsedDays, sprint), (c) => c.days);
 
   const wipByDay = elapsedDays.map((d) => issues.filter((i) => ACTIVE_STATUSES.includes(statusAt(i, d))).length);
   const lastStretch = days.slice(Math.floor(days.length * 0.7));
@@ -160,6 +167,22 @@ export function observeSprint(dataset, sprintId, asOf) {
       upcomingAbsences: c.absences.filter((d) => d > at),
     };
   });
+  // Personnes hors capacité (responsables, PO…) qui portent tout de même des tickets : visibles, mais
+  // exclues des calculs de capacité et de concentration.
+  const counted = new Set(capacity.map((c) => c.member));
+  for (const member of new Set(issues.map((i) => i.assignee))) {
+    if (counted.has(member)) continue;
+    const mine = issues.filter((i) => i.assignee === member);
+    load.push({
+      member,
+      outside: true,
+      capacityDays: 0,
+      remainingPoints: sum(mine.filter((i) => !i.done), pts),
+      donePoints: sum(mine.filter((i) => i.done), pts),
+      wip: mine.filter((i) => ACTIVE_STATUSES.includes(i.status)).length,
+      upcomingAbsences: [],
+    });
+  }
 
   const comments = issues.flatMap((i) => i.comments.map((c) => ({ ...c, key: i.key })));
 

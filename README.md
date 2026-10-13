@@ -96,6 +96,26 @@ SOBRUS_DATA_FILE=data/jira.json npm start
 
 Conventions : drapeau *Impediment* = blocage ; étiquette `dependance:<nom>` = dépendance externe ; statut contenant *review / revue / QA / test* = en revue. Le feedback de Review, les actions de rétro et les absences ne sont pas dans Jira : les ajouter dans le JSON (champs `review`, `retro`, `absences` — voir [le format](docs/VISION.md#format-des-données)).
 
+## Équipe et capacité
+
+Toutes les personnes assignées dans Linear sont visibles, mais **seuls les développeurs comptent dans la capacité** :
+
+1. **Référence** : la liste « Développeurs » de l'onglet *Config* de la Sheet « Taux d'Occupation Sobrus ». Les autres personnes (responsables, PO, design…) sont affichées « hors capacité ».
+2. **Par sprint** : un développeur de cette liste compte dans un sprint s'il a au moins un ticket de l'équipe dans ce sprint. La Sheet couvre tout Sobrus, et un développeur d'une autre équipe ne doit pas gonfler la capacité.
+3. **Congés et jours fériés** (onglet *Manual_Input*) sont déduits.
+
+Corrections manuelles possibles, dans `data/private/equipe.json` (facultatif, non versionné), prises en compte à la prochaine synchronisation :
+
+```json
+{
+  "inclure": ["prenom.n@sobrus.com"],
+  "exclure": ["prenom.n@sobrus.com"],
+  "allocation": { "prenom.n@sobrus.com": 0.5 }
+}
+```
+
+`allocation` sert pour une personne partagée entre plusieurs équipes : 0,5 compte la moitié de ses jours.
+
 ## Configuration
 
 | Variable | Rôle | Défaut |

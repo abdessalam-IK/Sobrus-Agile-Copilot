@@ -1,7 +1,7 @@
 // Synchronisation Linear (+ exports Sheets) vers data/private/linear-<équipe>.json.
 // Utilisée par la ligne de commande (npm run sync) et par le bouton de l'interface.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEnv } from './adapters/linear-client.js';
@@ -14,8 +14,10 @@ export async function syncLinear({ teamKey, closedCycles = 6, onProgress = () =>
   loadEnv();
   const team = teamKey || process.env.LINEAR_TEAM || 'SUPP';
   const sheets = readSheets(path.join(root, 'data/private/Sheets'));
+  const teamFile = path.join(root, 'data/private/equipe.json');
+  const teamConfig = existsSync(teamFile) ? JSON.parse(readFileSync(teamFile, 'utf8')) : {};
   const t0 = Date.now();
-  const dataset = await importFromLinear({ teamKey: team, closedCycles, sheets, onProgress });
+  const dataset = await importFromLinear({ teamKey: team, closedCycles, sheets, teamConfig, onProgress });
   const out = path.join(root, `data/private/linear-${team.toLowerCase()}.json`);
   mkdirSync(path.dirname(out), { recursive: true });
   writeFileSync(out, JSON.stringify(dataset, null, 2));
@@ -26,6 +28,8 @@ export async function syncLinear({ teamKey, closedCycles = 6, onProgress = () =>
     sheets: sheets ? { developers: sheets.developers.length, holidays: sheets.holidays.length } : null,
     sprints: dataset.sprints.map((s) => ({ name: s.name, start: s.start, end: s.end, status: s.status, issues: s.issues.length, done: s.issues.filter((i) => i.history.at(-1)?.to === 'done').length })),
     team: dataset.team.length,
+    developers: dataset.team.filter((m) => m.delivery).map((m) => m.name),
+    outsideCapacity: dataset.team.filter((m) => !m.delivery).map((m) => m.name),
     backlog: dataset.backlog.length,
   };
 }

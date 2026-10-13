@@ -271,8 +271,8 @@ function viewObserve() {
     </div>
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card"><h3>Burndown</h3>${burndownChart(o)}</div>
-      <div class="card"><h3>Charge par personne</h3>
-        ${o.load.map((l) => `<div class="bar-row"><span>${esc(name(l.member))}</span><div class="bar"><span style="width:${(l.donePoints / maxLoad) * 100}%;background:var(--brand)"></span><span style="width:${(l.remainingPoints / maxLoad) * 100}%;background:var(--attention)"></span></div><span class="small muted">${l.donePoints}/${l.donePoints + l.remainingPoints} pts${l.upcomingAbsences.length ? ` · ✈ ${l.upcomingAbsences.length} j` : ''}</span></div>`).join('')}
+      <div class="card"><h3>Charge par personne</h3><p class="small muted">Capacité : ${o.capacity.length} développeur(s), ${r1(o.metrics.personDays)} jours-personne (congés et jours fériés déduits). Les profils non-développeurs sont affichés « hors capacité » et ne comptent pas.</p>
+        ${o.load.map((l) => `<div class="bar-row${l.outside ? ' outside' : ''}"><span title="${l.outside ? 'Hors capacité : responsable, PO, design… (non compté dans la capacité)' : 'Développeur'}">${esc(name(l.member))}${l.outside ? ' <span class="tag">hors capacité</span>' : ''}</span><div class="bar"><span style="width:${(l.donePoints / maxLoad) * 100}%;background:var(--brand)"></span><span style="width:${(l.remainingPoints / maxLoad) * 100}%;background:var(--attention)"></span></div><span class="small muted">${l.donePoints}/${l.donePoints + l.remainingPoints} pts${l.upcomingAbsences.length ? ` · ✈ ${l.upcomingAbsences.length} j` : ''}</span></div>`).join('')}
         <div class="chips small" style="margin-top:8px"><span class="tag brand">■ terminé</span><span class="tag orange">■ restant</span><span class="muted">✈ absences à venir</span></div>
       </div>
     </div>

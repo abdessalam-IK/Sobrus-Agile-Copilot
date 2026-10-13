@@ -183,7 +183,7 @@ function dropTrackedParents(issues) {
   return issues.filter((i) => !(i.isParent && parentsWithChildren.has(i.key)));
 }
 
-export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, sheets = null, onProgress = () => {} } = {}) {
+export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, sheets = null, teamConfig = {}, onProgress = () => {} } = {}) {
   const { teams } = await linear('{ teams(first: 100) { nodes { id key name } } }');
   const team = teams.nodes.find((t) => t.key === teamKey);
   if (!team) throw new Error(`Équipe Linear « ${teamKey} » introuvable`);
@@ -243,8 +243,23 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
     });
   }
 
-  // Équipe : toutes les personnes assignées sur la période, enrichies par les Sheets
-  const team_ = [...members.values()].map((m) => ({ id: m.id, name: m.name, email: m.email?.toLowerCase(), role: 'Équipe' }));
+  // Équipe : toutes les personnes assignées sur la période.
+  // Capacité : seuls les développeurs comptent. Référence = liste « Développeurs » de la Sheet Config
+  // (les responsables assignés dans Linear restent visibles mais hors capacité), corrigée par
+  // data/private/equipe.json si besoin : { "inclure": [emails], "exclure": [emails], "allocation": { email: 0.5 } }.
+  const devEmails = sheets ? new Set(sheets.developers.map((d) => d.email)) : null;
+  const include = new Set((teamConfig.inclure || []).map((e) => e.toLowerCase()));
+  const exclude = new Set((teamConfig.exclure || []).map((e) => e.toLowerCase()));
+  const team_ = [...members.values()].map((m) => {
+    const email = m.email?.toLowerCase();
+    const isDev = !exclude.has(email) && (include.has(email) || !devEmails || devEmails.has(email));
+    const allocation = teamConfig.allocation?.[email];
+    return { id: m.id, name: m.name, email, role: isDev ? 'Développeur' : 'Hors capacité (responsable, PO, design…)', delivery: isDev, ...(allocation != null && { allocation }) };
+  });
+  // Dans un sprint, un développeur compte dans la capacité s'il y a au moins un ticket de l'équipe
+  // (la Sheet couvre tout Sobrus : un dev d'une autre équipe ne doit pas gonfler la capacité de celle-ci).
+  const devIds = new Set(team_.filter((m) => m.delivery).map((m) => m.id));
+  for (const s of sprints) s.capacityMembers = [...new Set(s.issues.map((i) => i.assignee))].filter((id) => devIds.has(id));
   const holidays = sheets?.holidays || [];
   if (sheets) {
     const byEmail = new Map(team_.map((m) => [m.email, m]));
@@ -266,6 +281,8 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
     start: localDate(next.startsAt),
     end: addDays(localDate(next.endsAt), -1),
     absences: Object.fromEntries(team_.map((m) => [m.id, (sheets?.absences[m.email] || []).filter((d) => d >= localDate(next.startsAt) && d < localDate(next.endsAt))]).filter(([, d]) => d.length)),
+    // Hypothèse pour le Planning : les développeurs du sprint en cours (ou du dernier sprint)
+    capacityMembers: sprints.at(-1)?.capacityMembers || [],
   };
 
   return {

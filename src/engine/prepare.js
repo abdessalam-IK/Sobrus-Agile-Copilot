@@ -3,7 +3,7 @@
 // Tout ce qui est produit ici est un brouillon pour le Scrum Master, le PO et l'équipe :
 // des points d'attention et des questions, jamais des décisions.
 
-import { STATUS_LABELS, ACTIVE_STATUSES } from './observe.js';
+import { STATUS_LABELS, ACTIVE_STATUSES, deliveryMembers } from './observe.js';
 import { workingDays } from '../lib/calendar.js';
 import { mean, sum, round, pct, quantile } from '../lib/stats.js';
 
@@ -150,9 +150,9 @@ function planning(snap, thought, history, dataset, names) {
   let capacity = null;
   if (next) {
     const days = workingDays(next.start, next.end, holidays);
-    const members = dataset.team.filter((m) => m.delivery !== false).map((m) => {
+    const members = deliveryMembers(dataset.team, next).map((m) => {
       const off = (next.absences?.[m.id] || []).filter((d) => days.includes(d));
-      return { member: names(m.id), days: days.length - off.length, absences: off.length };
+      return { member: names(m.id), days: (days.length - off.length) * (m.allocation ?? 1), absences: off.length, allocation: m.allocation ?? 1 };
     });
     capacity = { sprint: next.name, start: next.start, end: next.end, workingDays: days.length, personDays: sum(members, (x) => x.days), members };
   }
