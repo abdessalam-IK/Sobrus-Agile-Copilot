@@ -54,7 +54,7 @@ const ISSUE_FIELDS = `
   state { name type }
   assignee { id name email }
   parent { identifier title labels { nodes { name parent { name } } } }
-  children { nodes { identifier } }
+  children(first: 30) { nodes { identifier title estimate state { name type } cycle { id } } }
   project { name }
   labels { nodes { name parent { name } } }
   history(first: 50) { nodes {
@@ -177,6 +177,36 @@ async function fetchCycleIssues(cycle) {
   return [...byId.values()];
 }
 
+/**
+ * Fonctionnalités = issues parents du cycle, suivies par leurs sous-issues (règle Sobrus : un parent est
+ * terminé quand toutes ses sous-issues le sont). État actuel de Linear : calculé pour le sprint en cours.
+ * Les sous-issues planifiées dans aucun cycle (ou un autre) empêchent le parent de se terminer dans ce sprint.
+ */
+function featuresOf(raws, cycle) {
+  const closedType = (k) => k.state.type === 'completed';
+  return raws
+    .filter((r) => r.children.nodes.length)
+    .map((r) => {
+      const kids = r.children.nodes.filter((k) => !['canceled', 'duplicate'].includes(k.state.type) || k.state.name === STUCK);
+      const done = kids.filter(closedType);
+      const labels = r.labels.nodes.map(labelName);
+      return {
+        key: r.identifier,
+        title: r.title,
+        state: r.state.name,
+        goal: labels.some((l) => LABELS.goal.includes(l)),
+        total: kids.length,
+        done: done.length,
+        points: kids.reduce((a, k) => a + (k.estimate || 0), 0),
+        pointsDone: done.reduce((a, k) => a + (k.estimate || 0), 0),
+        unestimated: kids.filter((k) => !closedType(k) && k.estimate == null).length,
+        outside: kids.filter((k) => !closedType(k) && k.cycle?.id !== cycle.id).map((k) => ({ key: k.identifier, title: k.title, state: k.state.name })),
+        complete: kids.length > 0 && done.length === kids.length,
+      };
+    })
+    .sort((a, b) => a.done / a.total - b.done / b.total);
+}
+
 /** Retire les parents suivis à travers leurs sous-issues présentes dans le même cycle. */
 function dropTrackedParents(issues) {
   const parentsWithChildren = new Set(issues.map((i) => i.parentKey).filter(Boolean));
@@ -215,6 +245,7 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
       end: addDays(localDate(c.endsAt), -1), // le dernier jour est la veille du cycle suivant
       goal: c.description?.trim() || 'Objectif non renseigné dans Linear (issues « commitment prod »)',
       linearCycleId: c.id,
+      features: c.isActive ? featuresOf(raws, c) : [],
       absences: {},
       issues,
       review: null,

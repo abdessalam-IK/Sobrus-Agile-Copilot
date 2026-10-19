@@ -250,6 +250,18 @@ function ticket(i) {
   return `<div class="ticket ${cls}"><span class="key">${esc(i.key)}</span> ${esc(i.title)}<div class="meta">${tags}</div></div>`;
 }
 
+/** Fonctionnalités = tickets parents, terminés seulement quand tous leurs sous-tickets le sont. */
+function featuresCard(o) {
+  if (!o.features?.length) return '';
+  const rows = o.features.map((f) => `<tr>
+    <td><b>${esc(f.key)}</b> ${esc(f.title)}${f.goal ? ' <span class="tag brand">objectif</span>' : ''}</td>
+    <td style="min-width:160px"><div class="bar"><span style="width:${(f.done / Math.max(1, f.total)) * 100}%;background:var(--brand)"></span></div><span class="small muted">${f.done}/${f.total} sous-tickets · ${f.pointsDone}/${f.points} pts</span></td>
+    <td>${f.complete ? '<span class="tag green">terminée</span>' : f.outside.length ? `<span class="tag red" title="${esc(f.outside.map((x) => `${x.key} (${x.state})`).join(', '))}">${f.outside.length} sous-ticket(s) hors du cycle</span>` : '<span class="tag">en cours</span>'}${f.unestimated ? ` <span class="tag orange">${f.unestimated} non estimé(s)</span>` : ''}</td>
+  </tr>`).join('');
+  return `<div class="section-title"><h2>Fonctionnalités</h2><span class="muted small">Tickets parents : terminés quand tous leurs sous-tickets le sont · état actuel de Linear</span></div>
+    <div class="card"><table><thead><tr><th>Fonctionnalité</th><th>Avancement</th><th>État</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
 function viewObserve() {
   const o = state.data.observe;
   const m = o.metrics;
@@ -282,6 +294,7 @@ function viewObserve() {
       const items = o.issues.filter((i) => i.status === c);
       return `<div class="column"><h4>${STATUS[c]}<span>${items.length} · ${items.reduce((a, i) => a + (i.points || 0), 0)} pts</span></h4>${items.map(ticket).join('') || '<div class="empty small">—</div>'}</div>`;
     }).join('')}</div>
+    ${featuresCard(o)}
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card" id="commit"><h3>Engagement au Sprint Planning</h3>
         <table><thead><tr><th>Ticket</th><th>Epic</th><th class="num">Pts</th><th>Statut</th></tr></thead><tbody>

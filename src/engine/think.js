@@ -112,6 +112,7 @@ export function think(snap, rawSignals, { feedback } = {}) {
         `Jour ${snap.dayIndex}/${snap.totalDays}`,
         `${m.doneCount}/${m.scopeCount} tickets terminés`,
         `${m.donePoints}/${m.scopePoints} points estimés terminés`,
+        snap.features?.length ? `${snap.features.filter((f) => f.complete).length}/${snap.features.length} fonctionnalités terminées (tous sous-tickets)` : null,
         m.openUnestimated ? `${m.openUnestimated} ticket(s) restant(s) sans estimation` : null,
         snap.forecast ? `Probabilité de tout terminer : ${pct(snap.forecast.probability)} (calcul en ${snap.forecast.unit})` : null,
       ].filter(Boolean);

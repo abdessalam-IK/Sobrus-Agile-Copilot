@@ -206,6 +206,8 @@ export function observeSprint(dataset, sprintId, asOf) {
     load,
     capacity,
     comments,
+    // Fonctionnalités (parents + sous-issues) : état actuel de Linear, donc seulement quand on regarde aujourd'hui
+    features: at >= (dataset.meta?.referenceDate || at) ? sprint.features || [] : [],
     review: closed ? sprint.review : null,
     retro: closed ? sprint.retro : null,
   };

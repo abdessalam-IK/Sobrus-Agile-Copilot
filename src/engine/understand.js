@@ -323,6 +323,23 @@ function carryover(snap) {
   })];
 }
 
+/** Fonctionnalités qui ne peuvent pas se terminer : des sous-tickets ne sont pas dans le sprint. */
+function featureGaps(snap) {
+  const blocked = (snap.features || []).filter((f) => f.outside.length);
+  if (!blocked.length) return [];
+  const missing = sum(blocked, (f) => f.outside.length);
+  return [signal({
+    type: 'feature_gap', theme: 'scope',
+    severity: 0.3 + 0.1 * blocked.length + 0.03 * missing + (blocked.some((f) => f.goal) ? 0.2 : 0),
+    title: `${plural(blocked.length, 'fonctionnalité ne peut', 'fonctionnalités ne peuvent')} pas se terminer ce sprint : ${missing} sous-ticket(s) hors du cycle`,
+    narrative: 'Un ticket parent n’est terminé que lorsque tous ses sous-tickets le sont. Or certains sous-tickets ne sont planifiés dans aucun cycle (ou dans un autre) : la fonctionnalité restera ouverte quoi que fasse l’équipe.',
+    evidence: blocked.map((f) => `${f.key} « ${f.title} » — ${f.done}/${f.total} sous-tickets terminés, hors cycle : ${f.outside.map((o) => `${o.key} (${o.state})`).join(', ')}`),
+    issues: blocked.map((f) => f.key),
+    question: 'Ces sous-tickets doivent-ils entrer dans ce sprint, être découpés dans une autre fonctionnalité, ou la fonctionnalité doit-elle être replanifiée ?',
+    recommendation: { text: 'Au Planning, vérifier que chaque ticket parent engagé a tous ses sous-tickets dans le cycle.', owner: 'Product Owner' },
+  })];
+}
+
 /** Tickets non estimés : la vélocité en points sous-estime le travail réel. */
 function estimationGap(snap) {
   const missing = snap.issues.filter((i) => i.points == null);
@@ -498,7 +515,7 @@ function stakeholderFeedback(snap) {
 
 export const DETECTORS = [
   stuckIssues, blockers, dependencyBottleneck, recurringDependency, wipOverload, scopeChange, requirementChurn,
-  velocityTrend, overcommitment, forecast, carryover, estimationGap, endLoading, quality, concentration, commentSignals,
+  velocityTrend, overcommitment, forecast, carryover, featureGaps, estimationGap, endLoading, quality, concentration, commentSignals,
   retroFollowThrough, stakeholderFeedback,
 ];
 
