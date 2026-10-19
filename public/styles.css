@@ -223,3 +223,13 @@ svg text { fill: var(--muted); font-size: 11px; }
 .sync .btn { padding: 5px 12px; }
 .sync .stale { color: var(--attention); font-weight: 600; }
 .bar-row.outside { opacity: 0.7; }
+
+/* Étoiles du bandeau et précisions en bas de page */
+.star { display: inline-block; font-size: 11px; font-weight: 700; color: var(--brand); background: var(--brand-soft); border-radius: 999px; padding: 0 6px; text-decoration: none; vertical-align: 2px; }
+.star:hover { background: var(--brand); color: #fff; }
+.precisions { margin-top: 32px; }
+.precision { scroll-margin-top: 100px; }
+.precision:target { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+.precision-signal { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+.precision-signal:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.precision ul { margin: 6px 0; padding-left: 18px; }

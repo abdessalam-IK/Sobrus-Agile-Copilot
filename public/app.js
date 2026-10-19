@@ -166,9 +166,41 @@ function renderHero() {
     <div class="gauge">${gauge(t.health, t.healthLabel)}</div>
     <div>
       <div class="goal-line">🎯 ${esc(o.sprint.goal)} · ${o.closed ? 'Sprint terminé' : `Jour ${o.dayIndex}/${o.totalDays} (au ${dm(o.asOf)})`}</div>
-      <div class="headline">${esc(t.headline)}</div>
+      <div class="headline">${headlineHtml(t)}</div>
       <div class="facts">${t.facts.map((f) => `<span class="fact">${esc(f)}</span>`).join('')}</div>
     </div>`;
+  renderPrecisions(t);
+}
+
+const star = (k) => `<a class="star" href="#precision-${k}" title="Voir le détail en bas de page">★${k}</a>`;
+
+/** Titre du bandeau : chaque point porte une étoile qui renvoie à ses précisions en bas de page. */
+function headlineHtml(t) {
+  const h = t.headlineParts;
+  if (!h) return esc(t.headline);
+  const items = h.items.map((x, i) => `${esc(x.text)} ${star(i + 1)}`).join(' ; ');
+  const watch = h.watch.length ? ` À surveiller : ${h.watch.map((x) => esc(x.label.toLowerCase())).join(', ')} ${star(h.items.length + 1)}` : '';
+  return `${esc(h.intro)}${items ? ` : ${items}` : ''}.${watch}${watch ? '.' : ''}`;
+}
+
+/** Précisions en bas de page : pour chaque point du bandeau, les signaux, les tickets et la question à poser. */
+function renderPrecisions(t) {
+  const h = t.headlineParts;
+  const el = $('#precisions');
+  if (!h || (!h.items.length && !h.watch.length)) { el.innerHTML = ''; return; }
+  const evidence = (s) => {
+    if (!s.evidence.length) return '';
+    const li = s.evidence.map((e) => `<li>${esc(e)}</li>`).join('');
+    return s.evidence.length > 8 ? `<details><summary>Voir les ${s.evidence.length} éléments</summary><ul>${li}</ul></details>` : `<ul>${li}</ul>`;
+  };
+  const signals = (theme) => t.signals.filter((s) => s.theme === theme).map((s) => `
+    <div class="precision-signal"><b>${esc(s.title)}</b><p class="muted">${esc(s.narrative)}</p>${evidence(s)}<div class="question">${esc(s.question)}</div></div>`).join('');
+  const blocks = h.items.map((x, i) => `
+    <div class="card precision" id="precision-${i + 1}"><h3>★${i + 1} — ${esc(t.insights.find((n) => n.theme === x.theme)?.label || '')}</h3>${signals(x.theme)}</div>`);
+  if (h.watch.length) {
+    blocks.push(`<div class="card precision" id="precision-${h.items.length + 1}"><h3>★${h.items.length + 1} — À surveiller</h3>${h.watch.map((x) => `<h4>${esc(x.label)}</h4>${signals(x.theme)}`).join('')}</div>`);
+  }
+  el.innerHTML = `<div class="section-title"><h2>Précisions</h2><span class="muted small">Le détail des points marqués d’une étoile dans le bandeau</span></div><div class="grid">${blocks.join('')}</div>`;
 }
 
 // ---------------------------------------------------------------------------

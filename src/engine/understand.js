@@ -184,7 +184,7 @@ function scopeChange(snap) {
   return [signal({
     type: 'scope_change', theme: 'scope',
     severity: 0.2 + m.scopeChangeRatio * 2,
-    title: `+${m.addedPoints} points ajoutés en cours de sprint (${pct(m.scopeChangeRatio)} de l’engagement)`,
+    title: `${m.addedPoints} points ajoutés après le Planning, en plus des ${m.committedPoints} engagés (+${pct(m.scopeChangeRatio)})`,
     narrative: `${plural(added.length, 'élément a été ajouté', 'éléments ont été ajoutés')} après le Planning${urgent.length ? `, dont ${urgent.length} présenté(s) comme urgent(s)` : ''}.`,
     evidence: added.map((i) => `${i.key} (+${i.points} pts, ajouté le ${i.addedDate}) — ${i.title}`),
     issues: keys(added),

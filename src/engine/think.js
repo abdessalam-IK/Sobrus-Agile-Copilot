@@ -82,14 +82,22 @@ export function think(snap, rawSignals, { feedback } = {}) {
 
   // On ne met en avant que l'essentiel (3 thèmes maximum) : un copilote qui alerte sur tout n'aide personne.
   const attention = insights.filter((i) => i.severity >= 0.6).slice(0, 3);
-  const others = insights.length - attention.length;
+  const watch = insights.filter((i) => !attention.includes(i));
   const n = attention.length;
   const numbers = ['aucun', 'un', 'deux', 'trois'];
-  const headline = n
-    ? `${snap.sprint.name} présente ${numbers[n]} signa${n > 1 ? 'ux' : 'l'} nécessitant une attention particulière : ${attention.map((i) => i.headline.charAt(0).toLowerCase() + i.headline.slice(1)).join(' ; ')}.${others ? ` ${others} autre${others > 1 ? 's' : ''} point${others > 1 ? 's' : ''} à surveiller.` : ''}`
-    : insights.length
-      ? `${snap.sprint.name} ne présente pas de signal majeur ; ${insights.length} point(s) à surveiller.`
-      : `${snap.sprint.name} ne présente aucun signal particulier.`;
+  const lower = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+  // Titre structuré : chaque point renvoie à ses précisions (tickets, preuves) ; les points
+  // « à surveiller » sont nommés, jamais seulement comptés.
+  const headlineParts = {
+    intro: n
+      ? `${snap.sprint.name} présente ${numbers[n]} signa${n > 1 ? 'ux' : 'l'} nécessitant une attention particulière`
+      : insights.length
+        ? `${snap.sprint.name} ne présente pas de signal majeur`
+        : `${snap.sprint.name} ne présente aucun signal particulier`,
+    items: attention.map((i) => ({ theme: i.theme, text: lower(i.headline) })),
+    watch: watch.map((i) => ({ theme: i.theme, label: i.label, text: lower(i.headline) })),
+  };
+  const headline = `${headlineParts.intro}${n ? ` : ${headlineParts.items.map((x) => x.text).join(' ; ')}` : ''}.${watch.length ? ` À surveiller : ${watch.map((x) => x.label.toLowerCase()).join(', ')}.` : ''}`;
 
   // Chaque signal « consomme » une part de la santé restante (rendements décroissants).
   const health = Math.round(100 * signals.reduce((h, s) => h * (1 - 0.15 * s.severity), 1));
@@ -119,6 +127,7 @@ export function think(snap, rawSignals, { feedback } = {}) {
 
   return {
     headline,
+    headlineParts,
     priorities: attention.map((i) => i.theme),
     health,
     healthLabel: health >= 75 ? 'Sain' : health >= 50 ? 'Sous tension' : 'En difficulté',
