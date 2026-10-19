@@ -251,14 +251,19 @@ function overcommitment(snap, ctx) {
 /** Prévision de fin de sprint par simulation Monte Carlo (sprint en cours). */
 function forecast(snap, ctx) {
   if (snap.closed || !snap.remainingDays.length) return [];
-  const samples = ctx.previous.flatMap((p) => p.throughputDaily.map((t) => t.points / Math.max(1, p.metrics.personDays / p.totalDays)));
-  const current = snap.throughputDaily.map((t) => t.points / Math.max(1, snap.metrics.personDays / snap.totalDays));
+  const m = snap.metrics;
+  // Quand une part notable du travail restant n'est pas estimée, compter en points serait faux
+  // (un ticket non estimé vaut 0 point) : on raisonne alors en nombre de tickets.
+  const unit = m.openCount && (m.openUnestimated / m.openCount >= 0.25 || m.remainingPoints === 0) ? 'tickets' : 'points';
+  const amount = (t) => (unit === 'tickets' ? t.count ?? 0 : t.points);
+  const samples = ctx.previous.flatMap((p) => p.throughputDaily.map((t) => amount(t) / Math.max(1, p.metrics.personDays / p.totalDays)));
+  const current = snap.throughputDaily.map((t) => amount(t) / Math.max(1, m.personDays / snap.totalDays));
   const pool = [...samples, ...current, ...current]; // le sprint courant pèse double
   if (pool.length < 5) return [];
   const remainingCapacity = snap.remainingDays.map((d) => snap.capacity.filter((c) => !c.absences.includes(d)).length);
   const rand = seededRandom(7);
   const runs = 3000;
-  const target = snap.metrics.remainingPoints;
+  const target = unit === 'tickets' ? m.openCount : m.remainingPoints;
   let ok = 0;
   const totals = [];
   for (let r = 0; r < runs; r++) {
@@ -269,7 +274,7 @@ function forecast(snap, ctx) {
   }
   const p = ok / runs;
   const p50 = quantile(totals, 0.5);
-  snap.forecast = { probability: p, expectedPoints: round(p50), remainingPoints: target, p15: round(quantile(totals, 0.15)), p85: round(quantile(totals, 0.85)) };
+  snap.forecast = { unit, probability: p, expected: round(p50), remaining: target, p15: round(quantile(totals, 0.15)), p85: round(quantile(totals, 0.85)) };
   const goalOpen = snap.issues.filter((i) => i.goal && !i.done);
   const out = [];
   if (p < 0.75) {
@@ -277,8 +282,11 @@ function forecast(snap, ctx) {
       type: 'forecast_risk', theme: 'predictability',
       severity: 0.9 - p,
       title: `Probabilité de terminer le périmètre : ${pct(p)}`,
-      narrative: `Il reste ${target} points pour ${plural(snap.remainingDays.length, 'jour ouvré', 'jours ouvrés')}. Au rythme observé, l’équipe devrait livrer ~${Math.round(p50)} points (fourchette ${Math.round(quantile(totals, 0.15))}–${Math.round(quantile(totals, 0.85))}).`,
-      evidence: [`Simulation Monte Carlo (${runs} tirages) sur le débit quotidien historique, corrigé de la capacité restante`],
+      narrative: `Il reste ${target} ${unit} pour ${plural(snap.remainingDays.length, 'jour ouvré', 'jours ouvrés')}. Au rythme observé, l’équipe devrait en terminer ~${Math.round(p50)} (fourchette ${Math.round(quantile(totals, 0.15))}–${Math.round(quantile(totals, 0.85))}).`,
+      evidence: [
+        `Simulation Monte Carlo (${runs} tirages) sur le débit quotidien historique, corrigé de la capacité restante`,
+        ...(unit === 'tickets' ? [`Calcul en nombre de tickets : ${m.openUnestimated} des ${m.openCount} tickets restants ne sont pas estimés`] : []),
+      ],
       question: 'Si nous ne pouvons pas tout finir, que devons-nous absolument finir ?',
       recommendation: { text: 'Négocier dès maintenant avec le PO ce qui sort du sprint, plutôt que de le constater à la Review.', owner: 'Product Owner + Équipe' },
     }));

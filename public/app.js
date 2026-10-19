@@ -259,7 +259,8 @@ function viewObserve() {
   return `
     <div class="section-title" id="kpis"><h2>Indicateurs du sprint</h2><span class="muted small">Données au ${dm(o.asOf)} · ${o.issues.length} tickets · ${m.personDays} jours-personne</span></div>
     <div class="kpis">
-      ${kpi('Points terminés', `${m.donePoints}<span class="muted small"> / ${m.scopePoints}</span>`, pct(m.completionRatio))}
+      ${kpi('Tickets terminés', `${m.doneCount}<span class="muted small"> / ${m.scopeCount}</span>`, m.openUnestimated ? `dont ${m.openUnestimated} restant(s) non estimé(s)` : 'tous estimés')}
+      ${kpi('Points estimés terminés', `${m.donePoints}<span class="muted small"> / ${m.scopePoints}</span>`, 'un ticket non estimé compte 0')}
       ${kpi('Engagement initial', m.committedPoints, `${committed.length} tickets au Planning`)}
       ${kpi('Ajouts en cours', `+${m.addedPoints}`, `${pct(m.scopeChangeRatio)} de l’engagement`)}
       ${o.closed ? kpi('Fiabilité (say/do)', pct(m.sayDo), 'engagé et livré') : kpi('Probabilité de finir', o.forecast ? pct(o.forecast.probability) : '—', 'simulation Monte Carlo')}
@@ -320,7 +321,7 @@ function signalCard(s) {
 function viewSignals() {
   const { think: t, prepare: p, observe: o } = state.data;
   const risks = `
-    <div class="section-title" id="risks"><h2>Registre des risques</h2>${o.forecast ? `<span class="muted small">Prévision : ~${Math.round(o.forecast.expectedPoints)} pts livrables (fourchette ${Math.round(o.forecast.p15)}–${Math.round(o.forecast.p85)}) pour ${o.forecast.remainingPoints} restants</span>` : ''}</div>
+    <div class="section-title" id="risks"><h2>Registre des risques</h2>${o.forecast ? `<span class="muted small">Prévision : ~${Math.round(o.forecast.expected)} ${o.forecast.unit} terminables (fourchette ${Math.round(o.forecast.p15)}–${Math.round(o.forecast.p85)}) pour ${o.forecast.remaining} restants</span>` : ''}</div>
     <div class="card"><table><thead><tr><th>Risque</th><th>Probabilité</th><th>Impact</th><th>Mitigation proposée</th><th>Porteur</th></tr></thead><tbody>
       ${p.risks.map((r) => `<tr><td>${esc(r.title)}</td><td><span class="level ${r.probability === 'Élevée' ? 'critical' : r.probability === 'Moyenne' ? 'attention' : 'watch'}">${r.probability}</span></td><td>${r.impact}</td><td class="small">${esc(r.mitigation)}</td><td class="small">${esc(r.owner)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Aucun risque significatif.</td></tr>'}
     </tbody></table></div>

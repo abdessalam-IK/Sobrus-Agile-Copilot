@@ -103,14 +103,17 @@ export function think(snap, rawSignals, { feedback } = {}) {
   const m = snap.metrics;
   const facts = snap.closed
     ? [
-        `${m.donePoints}/${m.scopePoints} points livrés (${pct(m.completionRatio)})`,
+        `${m.doneCount}/${m.scopeCount} tickets livrés`,
+        `${m.donePoints}/${m.scopePoints} points estimés livrés`,
         `Fiabilité de l’engagement : ${pct(m.sayDo)}`,
         `Objectif : ${m.goalDone}/${m.goalTotal} éléments clés terminés`,
       ]
     : [
         `Jour ${snap.dayIndex}/${snap.totalDays}`,
-        `${m.donePoints}/${m.scopePoints} points terminés`,
-        snap.forecast ? `Probabilité de tout terminer : ${pct(snap.forecast.probability)}` : null,
+        `${m.doneCount}/${m.scopeCount} tickets terminés`,
+        `${m.donePoints}/${m.scopePoints} points estimés terminés`,
+        m.openUnestimated ? `${m.openUnestimated} ticket(s) restant(s) sans estimation` : null,
+        snap.forecast ? `Probabilité de tout terminer : ${pct(snap.forecast.probability)} (calcul en ${snap.forecast.unit})` : null,
       ].filter(Boolean);
 
   return {

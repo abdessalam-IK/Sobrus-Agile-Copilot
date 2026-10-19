@@ -234,11 +234,11 @@ export function reportMarkdown({ snap, thought, prepared, learned }) {
   L.push(`**Santé du sprint : ${thought.health}/100 (${thought.healthLabel})**`);
   L.push('');
   L.push('## Chiffres clés');
-  L.push(`- Points terminés : ${m.donePoints}/${m.scopePoints} (${pct(m.completionRatio)})`);
+  L.push(`- Tickets terminés : ${m.doneCount}/${m.scopeCount} · points estimés terminés : ${m.donePoints}/${m.scopePoints}${m.openUnestimated ? ` (${m.openUnestimated} ticket(s) restant(s) sans estimation)` : ''}`);
   if (m.sayDo != null) L.push(`- Fiabilité de l’engagement : ${pct(m.sayDo)}`);
   L.push(`- Objectif : ${m.goalDone}/${m.goalTotal} éléments clés terminés`);
   L.push(`- Ajouts en cours de sprint : +${m.addedPoints} pts · Jours-ticket bloqués : ${m.blockedIssueDays} · Tickets rouverts : ${m.reopenCount}`);
-  if (snap.forecast) L.push(`- Probabilité de terminer le périmètre : ${pct(snap.forecast.probability)} (~${Math.round(snap.forecast.expectedPoints)} pts attendus sur ${snap.forecast.remainingPoints} restants)`);
+  if (snap.forecast) L.push(`- Probabilité de terminer le périmètre : ${pct(snap.forecast.probability)} (~${Math.round(snap.forecast.expected)} ${snap.forecast.unit} attendus sur ${snap.forecast.remaining} restants)`);
   L.push('');
   L.push('## Insights');
   for (const i of thought.insights) {

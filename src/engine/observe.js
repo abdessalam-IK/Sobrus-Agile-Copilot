@@ -126,6 +126,10 @@ export function observeSprint(dataset, sprintId, asOf) {
     donePoints,
     doneCommittedPoints,
     remainingPoints: scopePoints - donePoints,
+    scopeCount: issues.length,
+    doneCount: done.length,
+    openCount: issues.length - done.length,
+    openUnestimated: issues.filter((i) => !i.done && i.points == null).length,
     sayDo: closed && committedPoints ? doneCommittedPoints / committedPoints : null,
     completionRatio: scopePoints ? donePoints / scopePoints : 0,
     carryoverPoints: sum(issues.filter((i) => i.carriedOver > 0), pts),
@@ -154,7 +158,7 @@ export function observeSprint(dataset, sprintId, asOf) {
     return { date: d, ideal, scope, remaining: scope - sum(inScope.filter((i) => statusAt(i, d) === 'done'), pts) };
   });
 
-  const throughputDaily = elapsedDays.map((d) => ({ date: d, points: sum(done.filter((i) => i.doneDate === d), pts) }));
+  const throughputDaily = elapsedDays.map((d) => ({ date: d, points: sum(done.filter((i) => i.doneDate === d), pts), count: done.filter((i) => i.doneDate === d).length }));
 
   const load = capacity.map((c) => {
     const mine = issues.filter((i) => i.assignee === c.member);
