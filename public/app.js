@@ -163,7 +163,7 @@ function gauge(value, label) {
 function renderHero() {
   const { observe: o, think: t } = state.data;
   $('#hero').innerHTML = `
-    <div class="gauge">${gauge(t.health, t.healthLabel)}</div>
+    <div class="gauge">${gauge(t.health, t.healthLabel)}${t.healthBreakdown ? `<div class="gauge-parts"><span title="Travail terminé par rapport à l’attendu à ce jour du sprint">Avancement ${t.healthBreakdown.progress.score}</span> · <span title="Points d’attention, un par thème">Signaux ${t.healthBreakdown.signals.score}</span></div><a class="small" href="#precision-sante">Comment est-elle calculée ?</a>` : ''}</div>
     <div>
       <div class="goal-line">🎯 ${esc(o.sprint.goal)} · ${o.closed ? 'Sprint terminé' : `Jour ${o.dayIndex}/${o.totalDays} (au ${dm(o.asOf)})`}</div>
       <div class="headline">${headlineHtml(t)}</div>
@@ -183,11 +183,27 @@ function headlineHtml(t) {
   return `${esc(h.intro)}${items ? ` : ${items}` : ''}.${watch}${watch ? '.' : ''}`;
 }
 
+/** Détail du score de santé : 60 % avancement + 40 % signaux (un retrait par thème). */
+function healthPrecision(t) {
+  const b = t.healthBreakdown;
+  const p = b.progress;
+  const themes = b.signals.themes.map((x) => `<tr><td>${esc(x.label)}</td><td class="small muted">${esc(x.signal)}</td><td class="num">−${r1(x.cost)}</td></tr>`).join('') || '<tr><td colspan="3" class="empty">Aucun signal.</td></tr>';
+  return `<div class="card precision" id="precision-sante"><h3>Comment est calculée la santé (${t.health}/100)</h3>
+    <p><b>Santé = ${Math.round(b.weights.progress * 100)} % avancement + ${Math.round(b.weights.signals * 100)} % signaux</b> = ${Math.round(b.weights.progress * 100)} % × ${p.score} + ${Math.round(b.weights.signals * 100)} % × ${b.signals.score} ≈ ${t.health}</p>
+    <h4>Avancement : ${p.score}/100</h4>
+    <p class="muted">${pct(p.completion)} du travail terminé (en ${esc(p.unit)}) pour ${pct(p.expected)} attendu à ce jour du sprint. Chaque point de retard sur l’attendu retire 2 points ; être en avance donne 100.</p>
+    <h4>Signaux : ${b.signals.score}/100</h4>
+    <p class="muted">On part de 100 ; chaque thème en alerte retire une part selon son signal le plus grave. Un seul retrait par thème, pour ne pas compter deux fois le même problème.</p>
+    <table><thead><tr><th>Thème</th><th>Signal le plus grave</th><th class="num">Retrait</th></tr></thead><tbody>${themes}</tbody></table>
+    ${b.signals.excluded.length ? `<p class="small muted">Non comptés dans les signaux car déjà reflétés par l’avancement : ${b.signals.excluded.map(esc).join(' ; ')}.</p>` : ''}
+  </div>`;
+}
+
 /** Précisions en bas de page : pour chaque point du bandeau, les signaux, les tickets et la question à poser. */
 function renderPrecisions(t) {
   const h = t.headlineParts;
   const el = $('#precisions');
-  if (!h || (!h.items.length && !h.watch.length)) { el.innerHTML = ''; return; }
+  if (!h) { el.innerHTML = ''; return; }
   const evidence = (s) => {
     if (!s.evidence.length) return '';
     const li = s.evidence.map((e) => `<li>${esc(e)}</li>`).join('');
@@ -200,6 +216,7 @@ function renderPrecisions(t) {
   if (h.watch.length) {
     blocks.push(`<div class="card precision" id="precision-${h.items.length + 1}"><h3>★${h.items.length + 1} — À surveiller</h3>${h.watch.map((x) => `<h4>${esc(x.label)}</h4>${signals(x.theme)}`).join('')}</div>`);
   }
+  if (t.healthBreakdown) blocks.push(healthPrecision(t));
   el.innerHTML = `<div class="section-title"><h2>Précisions</h2><span class="muted small">Le détail des points marqués d’une étoile dans le bandeau</span></div><div class="grid">${blocks.join('')}</div>`;
 }
 

@@ -233,3 +233,5 @@ svg text { fill: var(--muted); font-size: 11px; }
 .precision-signal { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
 .precision-signal:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
 .precision ul { margin: 6px 0; padding-left: 18px; }
+.gauge-parts { font-size: 12px; color: var(--text); margin-top: 4px; }
+.gauge a.small { color: var(--brand); }

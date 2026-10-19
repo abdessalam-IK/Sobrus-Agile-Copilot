@@ -48,6 +48,42 @@ function crossReadings(byTheme, signals) {
   return out;
 }
 
+// Santé = 60 % avancement + 40 % signaux, sans double comptage :
+//  - les signaux dérivés de l'avancement (prévision, retard sur la trajectoire) ne comptent que dans l'avancement ;
+//  - un seul retrait par thème (le signal le plus grave du thème), pas un par signal.
+export const HEALTH_WEIGHTS = { progress: 0.6, signals: 0.4 };
+const PROGRESS_SIGNALS = new Set(['forecast_risk', 'burndown_gap']);
+
+function computeHealth(snap, signals) {
+  const m = snap.metrics;
+  // Avancement en tickets ; les points s'y ajoutent quand au moins 75 % des tickets sont estimés.
+  const estimated = snap.issues.filter((i) => i.points != null).length / Math.max(1, snap.issues.length);
+  const ticketRatio = m.doneCount / Math.max(1, m.scopeCount);
+  const completion = estimated >= 0.75 && m.scopePoints ? (ticketRatio + m.donePoints / m.scopePoints) / 2 : ticketRatio;
+  const expected = snap.closed ? 1 : snap.dayIndex / snap.totalDays;
+  // Chaque point de pourcentage de retard sur l'attendu coûte 2 points (en avance = 100).
+  const progress = Math.round(Math.max(0, Math.min(100, 100 - Math.max(0, expected - completion) * 200)));
+
+  const byTheme = new Map();
+  for (const s of signals) {
+    if (PROGRESS_SIGNALS.has(s.type)) continue;
+    if (!byTheme.has(s.theme) || byTheme.get(s.theme).severity < s.severity) byTheme.set(s.theme, s);
+  }
+  let level = 100;
+  const themes = [...byTheme.values()].sort((a, b) => b.severity - a.severity).map((s) => {
+    const before = level;
+    level *= 1 - 0.25 * s.severity;
+    return { theme: s.theme, label: THEMES[s.theme].label, signal: s.title, severity: s.severity, cost: round(before - level, 1) };
+  });
+  const signalScore = Math.round(level);
+  return {
+    score: Math.round(HEALTH_WEIGHTS.progress * progress + HEALTH_WEIGHTS.signals * signalScore),
+    weights: HEALTH_WEIGHTS,
+    progress: { score: progress, completion: round(completion, 3), expected: round(expected, 3), unit: estimated >= 0.75 ? 'tickets et points' : 'tickets' },
+    signals: { score: signalScore, themes, excluded: signals.filter((s) => PROGRESS_SIGNALS.has(s.type)).map((s) => s.title) },
+  };
+}
+
 export function think(snap, rawSignals, { feedback } = {}) {
   const signals = rawSignals
     .map((s) => {
@@ -99,8 +135,8 @@ export function think(snap, rawSignals, { feedback } = {}) {
   };
   const headline = `${headlineParts.intro}${n ? ` : ${headlineParts.items.map((x) => x.text).join(' ; ')}` : ''}.${watch.length ? ` À surveiller : ${watch.map((x) => x.label.toLowerCase()).join(', ')}.` : ''}`;
 
-  // Chaque signal « consomme » une part de la santé restante (rendements décroissants).
-  const health = Math.round(100 * signals.reduce((h, s) => h * (1 - 0.15 * s.severity), 1));
+  const healthBreakdown = computeHealth(snap, signals);
+  const health = healthBreakdown.score;
 
   const recommendations = [];
   for (const s of signals) {
@@ -130,6 +166,7 @@ export function think(snap, rawSignals, { feedback } = {}) {
     headlineParts,
     priorities: attention.map((i) => i.theme),
     health,
+    healthBreakdown,
     healthLabel: health >= 75 ? 'Sain' : health >= 50 ? 'Sous tension' : 'En difficulté',
     facts,
     insights,
