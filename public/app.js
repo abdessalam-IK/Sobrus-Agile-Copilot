@@ -19,6 +19,7 @@ const PAGES = [
   { id: 'review', group: 'Fin de sprint', label: 'Sprint Review', sub: 'Livré, non livré, messages', intro: 'L’objectif du sprint, ce qui est livré, ce qui ne l’est pas et pourquoi, et les messages clés à partager.' },
   { id: 'retro', group: 'Fin de sprint', label: 'Rétrospective', sub: 'Préparer l’atelier', intro: 'Les données à montrer, la chronologie des événements, les questions à poser et le suivi des actions précédentes.' },
   { id: 'planning', group: 'Fin de sprint', label: 'Prochain Planning', sub: 'Capacité et points à challenger', intro: 'La capacité du prochain sprint (congés et jours fériés inclus), une fourchette d’engagement réaliste et les tickets à challenger.' },
+  { id: 'objectives', group: 'Prendre du recul', label: 'Objectifs', sub: 'Effort, projets, objectif de sprint', intro: 'Le lien entre le travail de l’équipe et les objectifs de Sobrus : à quoi sert le travail livré, où en sont les projets Linear et quand ils devraient se terminer, et si chaque sprint a un objectif écrit et atteint.' },
   { id: 'trends', group: 'Prendre du recul', label: 'Tendances', sub: 'Ce qui change de sprint en sprint', intro: 'La comparaison des sprints : qu’est-ce qui est en train de changer dans votre manière de travailler ?' },
   { id: 'report', group: 'Prendre du recul', label: 'Rapport', sub: 'Exporter en Markdown', intro: 'Le rapport complet du sprint, à copier ou à télécharger.' },
 ];
@@ -140,6 +141,7 @@ function render() {
     review: () => prepReview(p.review) + aiBox('bilan', 'Rédiger le bilan de fin de sprint avec Claude (Review, Rétro, Planning)'),
     retro: () => prepRetro(p.retro) + aiBox('bilan', 'Rédiger le bilan de fin de sprint avec Claude (Review, Rétro, Planning)'),
     planning: () => prepPlanning(p.planning) + aiBox('bilan', 'Rédiger le bilan de fin de sprint avec Claude (Review, Rétro, Planning)'),
+    objectives: viewObjectives,
     trends: viewLearn,
     report: viewReport,
   };
@@ -367,6 +369,60 @@ function viewKpis() {
     <p class="small muted" style="margin-top:12px">L’évolution de la précision du Planning et de l’imprévu d’un sprint à l’autre se trouve dans <b>Tendances</b>.</p>`;
 }
 
+// ---------------------------------------------------------------------------
+// Page « Objectifs »
+// ---------------------------------------------------------------------------
+const CATEGORY_COLOR = { 'Projets': 'var(--brand)', 'Bugs & support': 'var(--attention)', 'Technique': 'var(--brand-2)', 'Hors projet (non classé)': 'var(--border)' };
+
+function viewObjectives() {
+  const o = state.data.objectives;
+  if (!o) return '<p class="empty">Indicateurs indisponibles.</p>';
+  const goals = o.goals;
+  const current = goals.at(-1);
+  const alloc = o.allocation;
+  const last = alloc.at(-1);
+  const proj = o.projects;
+  const etaText = (p) => p.eta?.done ? '<span class="tag green">terminé</span>'
+    : p.eta?.slow ? '<span class="tag orange">rythme trop faible</span>'
+    : p.eta?.date ? `vers le ${dm(p.eta.date)}/${p.eta.date.slice(2, 4)} <span class="small muted">(${p.eta.sprints} sprint${p.eta.sprints > 1 ? 's' : ''})</span>`
+    : '<span class="muted">—</span>';
+
+  return `
+    <div class="grid cols-2">
+      <div class="card"><h3>Objectif du sprint</h3>
+        ${current?.goalSet ? `<p><b>« ${esc(current.goal)} »</b></p>` : '<p><span class="tag red">non renseigné</span> La description du cycle est vide dans Linear. Une phrase suffit : elle apparaîtra ici à la prochaine synchronisation.</p>'}
+        <table><thead><tr><th>Sprint</th><th>Objectif écrit</th><th class="num">Éléments clés livrés</th></tr></thead><tbody>
+          ${[...goals].reverse().map((g) => `<tr><td>${esc(g.sprint)}${g.closed ? '' : ' <span class="small muted">(en cours)</span>'}</td><td>${g.goalSet ? '<span class="tag green">oui</span>' : '<span class="tag">non</span>'}</td><td class="num">${g.keyItems ? `${g.keyDone}/${g.keyItems} <span class="small muted">(${pct(g.achievement)})</span>` : '<span class="muted">—</span>'}</td></tr>`).join('')}
+        </tbody></table>
+        <p class="small muted" style="margin-top:8px">Éléments clés = tickets portant le label « commitment prod ».</p>
+      </div>
+      <div class="card"><h3>À quoi sert le travail livré ?</h3>
+        <p class="small muted">Part des tickets terminés par catégorie, sprint par sprint. « Projets » = ticket rattaché à un projet Linear.</p>
+        ${alloc.map((a) => `<div class="bar-row"><span>${esc(a.sprint)}</span><div class="bar">${a.byCategory.map((c) => `<span title="${esc(c.category)} : ${c.count} ticket${c.count > 1 ? 's' : ''} (${pct(c.share)})" style="width:${c.share * 100}%;background:${CATEGORY_COLOR[c.category]}"></span>`).join('')}</div><span class="small muted">${a.done} livré${a.done > 1 ? 's' : ''} · ${pct(a.linkedShare)} projets</span></div>`).join('')}
+        <div class="chips small" style="margin-top:8px">${Object.entries(CATEGORY_COLOR).map(([k, c]) => `<span class="tag"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:4px"></span>${esc(k)}</span>`).join('')}</div>
+        ${last?.byProject.length ? `<h4 style="margin-top:12px">Projets servis ce sprint</h4>${list(last.byProject.map((p) => `${esc(p.project)} <span class="muted small">— ${p.count} ticket${p.count > 1 ? 's' : ''} livré${p.count > 1 ? 's' : ''}</span>`))}` : ''}
+      </div>
+    </div>
+
+    <div class="section-title"><h2>Projets Linear travaillés</h2><span class="muted small">Projets ayant reçu des tickets de l’équipe pendant les 4 derniers sprints · ${proj.total} projets ouverts ou récents au total</span></div>
+    ${proj.worked.length ? `<div class="card"><table><thead><tr><th>Projet</th><th>Statut Linear</th><th>Date cible</th><th>Avancement</th><th class="num">Rythme</th><th>Fin prévisible</th><th>Alertes</th></tr></thead><tbody>
+      ${proj.worked.map((p) => `<tr>
+        <td><a href="${esc(p.url)}" target="_blank" rel="noopener"><b>${esc(p.name)}</b></a>${p.lead ? `<div class="small muted">${esc(p.lead)}</div>` : ''}</td>
+        <td>${esc(p.status || '—')}</td>
+        <td>${p.targetDate ? dm(p.targetDate) + '/' + p.targetDate.slice(2, 4) : '<span class="muted">—</span>'}</td>
+        <td style="min-width:150px">${p.issues ? `${hbar(p.issues.done, p.issues.total)}<span class="small muted">${p.issues.done}/${p.issues.total} tickets</span>` : '—'}</td>
+        <td class="num">${p.rate != null ? r1(p.rate) : '—'} <span class="small muted">/sprint</span></td>
+        <td>${etaText(p)}</td>
+        <td>${p.alerts.map((a) => `<div class="tag orange" style="margin:2px 0;white-space:normal">${esc(a)}</div>`).join('') || '<span class="tag green">RAS</span>'}</td>
+      </tr>`).join('')}
+    </tbody></table>
+    <p class="small muted" style="margin-top:8px">Rythme = tickets du projet terminés par cette équipe par sprint (3 derniers sprints). Fin prévisible = tickets restants (toutes équipes) ÷ ce rythme : si d’autres équipes contribuent, la fin peut arriver plus tôt.</p></div>`
+    : '<div class="card"><p><span class="tag red">aucun</span> Aucun ticket de l’équipe n’a été rattaché à un projet Linear pendant les 4 derniers sprints : le Copilot ne peut pas relier le travail livré aux objectifs. Rattacher les tickets à leur projet dès leur création rend ce suivi automatique.</p></div>'}
+
+    ${proj.stale.length ? `<div class="card" style="margin-top:16px"><h3>Projets ouverts dont la date cible est dépassée</h3><p class="small muted">${proj.stale.length} projet${proj.stale.length > 1 ? 's' : ''} encore ouvert${proj.stale.length > 1 ? 's' : ''} dans Linear, sans ticket travaillé récemment par l’équipe : à clore, replanifier ou abandonner.</p>
+      <details><summary>Voir la liste</summary><ul>${proj.stale.map((p) => `<li><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a> <span class="muted small">— ${esc(p.status || '')}, cible ${dm(p.targetDate)}/${p.targetDate.slice(2, 4)}, ${pct(p.progress)} d’avancement</span></li>`).join('')}</ul></details></div>` : ''}`;
+}
+
 /** Charge de chaque développeur, en additionnant ses estimations sur tous les projets suivis. */
 function portfolioCard(p) {
   if (!p?.devs?.length) return '';
@@ -574,7 +630,7 @@ function fmtMetric(v, f) {
 
 function viewLearn() {
   const l = state.data.learn;
-  const themes = { flow: 'Flux', dependencies: 'Dépendances', scope: 'Périmètre', predictability: 'Prévisibilité', quality: 'Qualité', team: 'Équipe', improvement: 'Amélioration', stakeholders: 'Parties prenantes' };
+  const themes = { flow: 'Flux', dependencies: 'Dépendances', scope: 'Périmètre', predictability: 'Prévisibilité', quality: 'Qualité', team: 'Équipe', improvement: 'Amélioration', stakeholders: 'Parties prenantes', objectives: 'Objectifs' };
   const closedSeries = l.series.filter((s) => s.closed && !s.atypical);
   return `
     <div class="card cross"><h2>Qu’est-ce qui est en train de changer dans notre manière de travailler ?</h2><p>${esc(l.headline)}</p>

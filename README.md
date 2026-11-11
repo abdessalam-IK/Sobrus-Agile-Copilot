@@ -56,6 +56,14 @@ Le moteur est déterministe, explicable et testé. Claude n'intervient qu'à la 
 | **Blocages** | Jours-ticket passés en « Stuck » ou avec un label d'attente, par cause |
 | **Âge du travail en cours** | Jours depuis le premier « In Progress », comparés au temps habituel de l'équipe : au-delà de ce que dépassent seulement 15 % des tickets, le ticket est signalé |
 
+### Objectifs
+
+| Indicateur | Définition |
+|---|---|
+| **Objectif de sprint** | Description du cycle Linear renseignée ou non ; éléments clés (label « commitment prod ») livrés |
+| **Répartition de l'effort** | Tickets terminés par catégorie : *Projets* (rattachés à un projet Linear), *Bugs & support*, *Technique* (labels Technical, Improv, infra…), *Hors projet* |
+| **Projets Linear** | Pour chaque projet travaillé pendant les 4 derniers sprints : tickets restants (toutes équipes), rythme de l'équipe (tickets du projet terminés par sprint), fin prévisible, et alertes (date cible dépassée, pas de date cible, statut Linear pas à jour, projet qui n'avance presque plus). En dessous d'un ticket par sprint, aucune date n'est projetée |
+
 ### Santé du sprint
 
 **Santé = 60 % avancement + 40 % signaux**, sans double comptage :
@@ -74,6 +82,7 @@ Un seul menu, dans l'ordre où l'on en a besoin au fil du sprint. Le badge **« 
 | | **Daily** | Ce qui a bougé, ce qui bloque, les questions à poser |
 | | **Sprint** | Indicateurs, board, fonctionnalités, burndown, charge par développeur |
 | | **Indicateurs** | Travail imprévu et son origine, précision du Planning, cycle time par étape jusqu'en PROD, blocages, âge du travail en cours |
+| Prendre du recul | **Objectifs** | Objectif de sprint écrit et atteint, répartition de l'effort (projets, bugs & support, technique, hors projet), projets Linear avec fin prévisible et alertes |
 | | **Signaux** | Chaque signal avec ses preuves et la question à poser |
 | Fin de sprint | **Sprint Review** · **Rétrospective** · **Prochain Planning** | Préparation de chaque cérémonie |
 | Prendre du recul | **Tendances** | Ce qui change de sprint en sprint |

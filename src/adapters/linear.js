@@ -158,6 +158,7 @@ export function buildIssue(raw, cycle, nowTs = Date.now()) {
     points: raw.estimate ?? null,
     epic: raw.parent?.title || raw.project?.name || labels.find((l) => /^Module /.test(l)) || 'Sans epic',
     parentKey: raw.parent?.identifier || null,
+    project: raw.project?.name || null,
     isParent: raw.children.nodes.length > 0,
     assignee: raw.assignee?.id || 'non-assigne',
     goal: [...labels, ...parentLabels].some(isGoal),
@@ -255,6 +256,7 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
       start: localDate(c.startsAt),
       end: addDays(localDate(c.endsAt), -1), // le dernier jour est la veille du cycle suivant
       goal: c.description?.trim() || 'Objectif non renseigné dans Linear (issues « commitment prod »)',
+      goalSet: Boolean(c.description?.trim()),
       linearCycleId: c.id,
       features: c.isActive ? featuresOf(raws, c) : [],
       absences: {},
@@ -327,6 +329,11 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
     capacityMembers: sprints.at(-1)?.capacityMembers || [],
   };
 
+  onProgress('Projets Linear…');
+  // Projets réellement travaillés pendant les 4 derniers sprints : on compte leurs tickets restants
+  const worked = new Set(sprints.slice(-4).flatMap((s) => s.issues.map((i) => i.project)).filter(Boolean));
+  const projects = await fetchProjects(team.id, worked);
+
   return {
     meta: {
       product: team.name,
@@ -343,5 +350,51 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
     sprints,
     nextSprint,
     backlog,
+    projects,
   };
+}
+
+/**
+ * Projets Linear de l'équipe : en cours, planifiés, en pause, ou terminés depuis moins de 90 jours.
+ * Pour les projets travaillés récemment (`worked`), on compte aussi les tickets restants (toutes équipes),
+ * ce qui permet de projeter une date de fin au rythme de l'équipe.
+ */
+async function fetchProjects(teamId, worked = new Set()) {
+  const nodes = await paginate(`query($id: String!, $first: Int, $after: String) {
+    team(id: $id) { projects(first: $first, after: $after) { nodes {
+      id name url health targetDate startDate startedAt completedAt progress
+      status { name type }
+      lead { name }
+      initiatives { nodes { name } }
+      projectMilestones { nodes { name targetDate } }
+    } pageInfo { hasNextPage endCursor } } }
+  }`, { id: teamId }, (d) => d.team.projects, 10);
+  const recent = Date.now() - 90 * 24 * HOUR;
+  const kept = nodes.filter((p) => ['planned', 'started', 'paused'].includes(p.status?.type) || (p.completedAt && ms(p.completedAt) > recent) || worked.has(p.name));
+  const counts = new Map();
+  for (const p of kept.filter((x) => worked.has(x.name))) {
+    const issues = await paginate(`query($id: String!, $first: Int, $after: String) {
+      project(id: $id) { issues(first: $first, after: $after) { nodes { state { type } } pageInfo { hasNextPage endCursor } } }
+    }`, { id: p.id }, (d) => d.project.issues, 100);
+    const live = issues.filter((i) => !['canceled', 'duplicate'].includes(i.state.type));
+    counts.set(p.id, { total: live.length, done: live.filter((i) => i.state.type === 'completed').length });
+  }
+  return kept
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      url: p.url,
+      status: p.status?.name,
+      statusType: p.status?.type,
+      health: p.health || null,
+      lead: p.lead?.name || null,
+      startDate: p.startDate || localDate(p.startedAt),
+      targetDate: p.targetDate || null,
+      completedAt: localDate(p.completedAt),
+      progress: p.progress,
+      initiatives: p.initiatives.nodes.map((i) => i.name),
+      milestones: p.projectMilestones.nodes.map((m) => ({ name: m.name, targetDate: m.targetDate })),
+      worked: worked.has(p.name),
+      issues: counts.get(p.id) || null,
+    }));
 }

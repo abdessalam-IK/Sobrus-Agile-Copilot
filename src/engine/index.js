@@ -6,6 +6,7 @@ import { think } from './think.js';
 import { prepare, reportMarkdown } from './prepare.js';
 import { learn } from './learn.js';
 import { flowMetrics } from './flow.js';
+import { objectives } from './objectives.js';
 
 /**
  * Analyse un sprint à une date donnée.
@@ -32,10 +33,11 @@ export function analyze(dataset, sprintId, { asOf, portfolio = null } = {}) {
   const flow = flowMetrics(snap, history.slice(0, -1).filter((h) => h.snap.closed).map((h) => h.snap), dataset.meta?.holidays || []);
   const learned = learn(history);
   const prepared = prepare(snap, thought, history, dataset);
-  const report = reportMarkdown({ snap, thought, prepared, learned, flow });
+  const goals = objectives(dataset, history.map((h) => h.snap));
+  const report = reportMarkdown({ snap, thought, prepared, learned, flow, objectives: goals });
 
   const activeNow = dataset.sprints[idx].status === 'active' && !asOf;
-  return { observe: snap, think: thought, prepare: prepared, learn: learned, flow, report, portfolio: activeNow ? portfolio : null };
+  return { observe: snap, think: thought, prepare: prepared, learn: learned, flow, objectives: goals, report, portfolio: activeNow ? portfolio : null };
 }
 
 export function summary(dataset) {

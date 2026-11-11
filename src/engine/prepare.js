@@ -177,7 +177,7 @@ function planning(snap, thought, history, dataset, names) {
 // ---------------------------------------------------------------------------
 // Rapport (Markdown) — pour le management ou la Review
 // ---------------------------------------------------------------------------
-export function reportMarkdown({ snap, thought, prepared, learned, flow }) {
+export function reportMarkdown({ snap, thought, prepared, learned, flow, objectives }) {
   const m = snap.metrics;
   const L = [];
   L.push(`# Sobrus AI Copilot — ${snap.sprint.name}`);
@@ -203,6 +203,18 @@ export function reportMarkdown({ snap, thought, prepared, learned, flow }) {
     if (stages.length) L.push(`- Cycle time médian par étape (jours ouvrés) : ${stages.map((s) => `${s.label.toLowerCase()} ${s.median}`).join(' → ')}${flow.cycle.bottleneck ? ` · étape la plus longue : ${flow.cycle.bottleneck.label.toLowerCase()}` : ''}`);
     if (flow.cycle.leadToProd) L.push(`- Délai médian du début du développement à la PROD : ${flow.cycle.leadToProd.median} jours ouvrés (${pct(flow.cycle.leadToProd.share)} des tickets terminés sont en PROD)`);
     if (flow.blockages.ticketDays) L.push(`- Blocages : ${flow.blockages.ticketDays} jours-ticket — ${flow.blockages.byCause.slice(0, 3).map((c) => `${c.cause} ${c.ticketDays} j`).join(', ')}`);
+  }
+  if (objectives) {
+    L.push('');
+    L.push('## Objectifs');
+    const a = objectives.allocation.at(-1);
+    if (a?.done) L.push(`- Répartition du travail livré : ${a.byCategory.filter((c) => c.count).map((c) => `${c.category.toLowerCase()} ${pct(c.share)}`).join(', ')}`);
+    const g = objectives.goals.at(-1);
+    if (g) L.push(`- Objectif de sprint : ${g.goalSet ? `« ${g.goal} »` : 'non renseigné dans Linear'}${g.keyItems ? ` · éléments clés livrés ${g.keyDone}/${g.keyItems}` : ''}`);
+    for (const p of objectives.projects.worked) {
+      const eta = p.eta?.done ? 'terminé' : p.eta?.slow ? 'avance très lentement' : p.eta?.date ? `fin prévisible vers le ${p.eta.date}` : 'fin non prévisible';
+      L.push(`- Projet « ${p.name} » : ${p.issues ? `${p.issues.done}/${p.issues.total} tickets terminés` : ''}, ${eta}${p.alerts.length ? ` (${p.alerts.join(' ; ')})` : ''}`);
+    }
   }
   L.push('');
   L.push('## Insights');

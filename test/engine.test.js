@@ -139,3 +139,27 @@ test('PREPARE : le Planning signale les éléments non prêts', () => {
   assert.ok(prepare.planning.range.recommended > 0);
   assert.ok(prepare.planning.candidates.some((c) => c.key === 'PHA-401' && c.flags.some((f) => /reporté/.test(f.text))));
 });
+
+test('OBJECTIFS : répartition de l’effort et fin prévisible des projets', async () => {
+  const { categoryOf, allocation, projectsStatus } = await import('../src/engine/objectives.js');
+  assert.equal(categoryOf({ project: 'Pack Pharma', type: 'bug' }), 'Projets');
+  assert.equal(categoryOf({ type: 'bug' }), 'Bugs & support');
+  assert.equal(categoryOf({ type: 'story', labels: ['Technical'] }), 'Technique');
+  assert.equal(categoryOf({ type: 'story', labels: [] }), 'Hors projet (non classé)');
+
+  const done = (key, project) => issue({ key, project, history: [{ date: '2026-01-06', to: 'done' }] });
+  const ds = tiny([done('A', 'Projet X'), done('B', 'Projet X'), done('C'), issue({ key: 'D', project: 'Projet X' })]);
+  const snap = analyze(ds, 'T1').observe;
+  const a = allocation(snap);
+  assert.equal(a.done, 3);
+  assert.equal(Math.round(a.linkedShare * 100), 67);
+
+  // Rythme : 2 tickets du projet terminés par sprint, 4 restants → 2 sprints
+  const closedSnap = { ...snap, closed: true };
+  ds.projects = [{ name: 'Projet X', status: 'Backlog', statusType: 'backlog', worked: true, targetDate: '2026-01-10', issues: { total: 6, done: 2 } }];
+  const p = projectsStatus(ds, [closedSnap, snap], '2026-01-12').worked[0];
+  assert.equal(p.rate, 2);
+  assert.equal(p.eta.sprints, 2);
+  assert.ok(p.alerts.includes('Date cible dépassée'));
+  assert.ok(p.alerts.some((x) => /Statut Linear « Backlog »/.test(x)));
+});

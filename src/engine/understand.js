@@ -16,6 +16,7 @@ export const THEMES = {
   team: { label: 'Équipe & charge', icon: '☺' },
   improvement: { label: 'Amélioration continue', icon: '↻' },
   stakeholders: { label: 'Parties prenantes', icon: '☊' },
+  objectives: { label: 'Objectifs', icon: '◆' },
 };
 
 const pts = (i) => i.points || 0;
@@ -545,7 +546,39 @@ function planningAccuracySignal(snap) {
   return out;
 }
 
+/** Le travail livré est-il relié aux objectifs (projets Linear) ? */
+function unlinkedWork(snap, ctx) {
+  if (!ctx.dataset.projects?.length) return []; // source de données sans notion de projet
+  const done = snap.issues.filter((i) => i.done);
+  if (done.length < 5) return [];
+  const linked = done.filter((i) => i.project).length / done.length;
+  if (linked >= 0.3) return [];
+  return [signal({
+    type: 'unlinked_work', theme: 'objectives',
+    severity: 0.25 + (0.3 - linked),
+    title: linked === 0 ? 'Aucun ticket livré n’est rattaché à un projet Linear' : `${pct(linked)} seulement du travail livré est rattaché à un projet Linear`,
+    narrative: `${done.length - done.filter((i) => i.project).length} des ${done.length} tickets terminés ne sont reliés à aucun projet : impossible de dire quelle part du sprint sert les objectifs de Sobrus.`,
+    question: 'À quel objectif ces tickets contribuent-ils ? Faut-il les rattacher à un projet, ou sont-ils du support à rendre visible comme tel ?',
+    recommendation: { text: 'Rattacher chaque ticket à un projet Linear (ou le marquer comme bug / support) dès sa création.', owner: 'Product Owner' },
+  })];
+}
+
+/** L'objectif de sprint est-il écrit dans Linear (description du cycle) ? */
+function sprintGoalMissing(snap, ctx) {
+  const raw = ctx.dataset.sprints.find((s) => s.id === snap.sprint.id);
+  if (!raw || raw.goalSet !== false) return [];
+  return [signal({
+    type: 'sprint_goal_missing', theme: 'objectives',
+    severity: snap.closed ? 0.3 : 0.35,
+    title: 'Aucun objectif de sprint renseigné dans Linear',
+    narrative: 'La description du cycle est vide : l’équipe n’a pas de cap commun écrit, et le Copilot ne peut pas dire si le sprint sert ce qui compte le plus.',
+    question: 'En une phrase, quel résultat ce sprint doit-il produire pour les clients ?',
+    recommendation: { text: 'Écrire l’objectif du sprint dans la description du cycle Linear au Planning.', owner: 'Product Owner' },
+  })];
+}
+
 export const DETECTORS = [
+  unlinkedWork, sprintGoalMissing,
   agingWipSignal, blockers, dependencyBottleneck, recurringDependency, wipOverload, scopeChange, requirementChurn,
   velocityTrend, planningAccuracySignal, forecast, carryover, crossTeamOverload, featureGaps, estimationGap, endLoading, quality, concentration,
   retroFollowThrough, stakeholderFeedback,
