@@ -7,7 +7,7 @@ const r1 = (x) => (x == null ? '—' : String(Math.round(x * 10) / 10).replace('
 const r2 = (x) => (x == null ? '—' : String(Math.round(x * 100) / 100).replace('.', ','));
 const dm = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '');
 
-const state = { summary: null, config: null, sprintId: null, asOf: null, data: null, tab: 'overview', ai: {} };
+const state = { teams: [], team: null, summary: null, config: null, sprintId: null, asOf: null, data: null, tab: 'overview', ai: {} };
 
 // Un seul menu, dans l'ordre où l'on en a besoin au fil du sprint.
 const PAGES = [
@@ -44,23 +44,46 @@ async function api(path, opts) {
 // ---------------------------------------------------------------------------
 // Chargement
 // ---------------------------------------------------------------------------
+const teamQuery = () => `team=${encodeURIComponent(state.team)}`;
+const sprintOptions = (sprints) => sprints.map((s) => `<option value="${s.id}">${esc(s.name)} — ${s.status === 'active' ? 'en cours' : 'terminé'} (${dm(s.start)} → ${dm(s.end)})</option>`).join('');
+
 async function init() {
-  [state.config, state.summary] = await Promise.all([api('/api/config'), api('/api/summary')]);
-  const { meta, sprints } = state.summary;
-  $('#brand-sub').textContent = `${meta.product} · ${meta.team}`;
-  $('#data-note').textContent = meta.demo ? ' · Données de démonstration fictives.' : '';
+  [state.config, state.teams] = await Promise.all([api('/api/config'), api('/api/teams')]);
   const badge = $('#ai-badge');
   badge.textContent = state.config.ai.configured ? `IA générative : ${state.config.ai.model}` : 'IA générative : non configurée';
   badge.classList.toggle('on', state.config.ai.configured);
-
-  renderSync();
   $('#sync-btn').addEventListener('click', syncNow);
 
+  // Projet : celui choisi la dernière fois (mémorisé dans ce navigateur), sinon le premier
+  let saved = null;
+  try { saved = localStorage.getItem('copilot.team'); } catch { /* stockage indisponible */ }
+  state.team = state.teams.some((t) => t.key === saved) ? saved : state.teams[0]?.key;
+  const teamSel = $('#team-select');
+  teamSel.innerHTML = state.teams.map((t) => `<option value="${t.key}">${esc(t.product)}</option>`).join('');
+  teamSel.value = state.team;
+  teamSel.addEventListener('change', async () => {
+    state.team = teamSel.value;
+    try { localStorage.setItem('copilot.team', state.team); } catch { /* stockage indisponible */ }
+    state.ai = {};
+    await loadTeam();
+  });
+  $('#sprint-select').addEventListener('change', (e) => { state.sprintId = e.target.value; state.asOf = null; load(); });
+  await loadTeam();
+}
+
+/** Charge le résumé du projet choisi et positionne le sprint en cours. */
+async function loadTeam(keepSprint = false) {
+  state.summary = await api(`/api/summary?${teamQuery()}`);
+  const { meta, sprints } = state.summary;
+  $('#brand-sub').textContent = `Projet : ${meta.product}`;
+  $('#data-note').textContent = meta.demo ? ' · Données de démonstration fictives.' : '';
+  renderSync();
   const sel = $('#sprint-select');
-  sel.innerHTML = sprints.map((s) => `<option value="${s.id}">${esc(s.name)} — ${s.status === 'active' ? 'en cours' : 'terminé'} (${dm(s.start)} → ${dm(s.end)})</option>`).join('');
-  state.sprintId = (sprints.find((s) => s.status === 'active') || sprints.at(-1)).id;
+  sel.innerHTML = sprintOptions(sprints);
+  const active = sprints.find((s) => s.status === 'active') || sprints.at(-1);
+  if (!keepSprint || !sprints.some((s) => s.id === state.sprintId)) state.sprintId = active.id;
   sel.value = state.sprintId;
-  sel.addEventListener('change', () => { state.sprintId = sel.value; state.asOf = null; load(); });
+  state.asOf = null;
   await load();
 }
 
@@ -80,19 +103,12 @@ function renderSync() {
 async function syncNow() {
   const btn = $('#sync-btn');
   btn.disabled = true;
-  btn.textContent = 'Synchronisation… (≈ 20 s)';
+  btn.textContent = `Synchronisation de ${state.teams.length} projet${state.teams.length > 1 ? 's' : ''}… (≈ ${30 * state.teams.length} s)`;
   try {
     await api('/api/sync', { method: 'POST' });
-    state.summary = await api('/api/summary');
-    const active = state.summary.sprints.find((s) => s.status === 'active') || state.summary.sprints.at(-1);
-    const sel = $('#sprint-select');
-    sel.innerHTML = state.summary.sprints.map((s) => `<option value="${s.id}">${esc(s.name)} — ${s.status === 'active' ? 'en cours' : 'terminé'} (${dm(s.start)} → ${dm(s.end)})</option>`).join('');
-    if (!state.summary.sprints.some((s) => s.id === state.sprintId)) state.sprintId = active.id;
-    sel.value = state.sprintId;
-    state.asOf = null;
+    state.teams = await api('/api/teams');
     state.ai = {};
-    renderSync();
-    await load();
+    await loadTeam(true);
   } catch (err) {
     alert(`Synchronisation impossible : ${err.message}`);
   } finally {
@@ -102,8 +118,8 @@ async function syncNow() {
 }
 
 async function load() {
-  const q = state.asOf ? `?asOf=${state.asOf}` : '';
-  state.data = await api(`/api/analysis/${state.sprintId}${q}`);
+  const q = state.asOf ? `&asOf=${state.asOf}` : '';
+  state.data = await api(`/api/analysis/${state.sprintId}?${teamQuery()}${q}`);
   render();
 }
 
@@ -291,6 +307,22 @@ function ticket(i) {
   return `<div class="ticket ${cls}"><span class="key">${esc(i.key)}</span> ${esc(i.title)}<div class="meta">${tags}</div></div>`;
 }
 
+/** Charge de chaque développeur, en additionnant ses estimations sur tous les projets suivis. */
+function portfolioCard(p) {
+  if (!p?.devs?.length) return '';
+  const projects = p.projects.map((x) => x.product);
+  const rows = p.devs.map((d) => `<tr${d.overloaded ? ' class="overloaded"' : ''}>
+    <td><b>${esc(d.name)}</b>${d.multiProject ? ' <span class="tag brand">multi-projets</span>' : ''}</td>
+    ${projects.map((name) => { const x = d.projects.find((y) => y.product === name); return `<td class="num">${x ? `${x.points}${x.unestimated ? ` <span class="small muted">+${x.unestimated} n.e.</span>` : ''}` : '<span class="muted">—</span>'}</td>`; }).join('')}
+    <td class="num"><b>${d.total}</b></td>
+    <td class="num">${d.capacityPoints != null ? `~${Math.round(d.capacityPoints)}` : '—'} <span class="small muted">(${r1(d.days)} j)</span></td>
+    <td>${d.overloaded ? `<span class="tag red">surcharge ×${r2(d.ratio)}</span>` : d.ratio != null ? `<span class="tag ${d.ratio > 1 ? 'orange' : 'green'}">×${r2(d.ratio)}</span>` : ''}</td>
+  </tr>`).join('');
+  return `<div class="section-title"><h2>Charge des développeurs, tous projets</h2><span class="muted small">Estimations de chaque développeur sur tous les projets du sprint · surcharge au-delà de ×${r2(p.overloadRatio)}</span></div>
+    <div class="card"><table><thead><tr><th>Développeur</th>${projects.map((n) => `<th class="num">${esc(n)}</th>`).join('')}<th class="num">Total (pts)</th><th class="num">Absorbable</th><th>Charge</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="small muted" style="margin-top:8px">Absorbable = jours disponibles (congés et fériés déduits) × rythme de référence de ${r2(p.rate)} point/jour, mesuré sur les 3 derniers sprints de tous les projets. « n.e. » = tickets non estimés, non comptés dans le total.</p></div>`;
+}
+
 /** Fonctionnalités = tickets parents, terminés seulement quand tous leurs sous-tickets le sont. */
 function featuresCard(o) {
   if (!o.features?.length) return '';
@@ -336,6 +368,7 @@ function viewObserve() {
       return `<div class="column"><h4>${STATUS[c]}<span>${items.length} · ${items.reduce((a, i) => a + (i.points || 0), 0)} pts</span></h4>${items.map(ticket).join('') || '<div class="empty small">—</div>'}</div>`;
     }).join('')}</div>
     ${featuresCard(o)}
+    ${portfolioCard(state.data.portfolio)}
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card" id="commit"><h3>Engagement au Sprint Planning</h3>
         <table><thead><tr><th>Ticket</th><th>Epic</th><th class="num">Pts</th><th>Statut</th></tr></thead><tbody>
@@ -462,7 +495,7 @@ function prepPlanning(p) {
 }
 
 function viewReport() {
-  return `<div class="card"><div class="signal-head"><h3>Rapport de sprint (Markdown)</h3><div class="chips"><button class="btn ghost" id="copy-report">Copier</button><a class="btn" href="/api/report/${state.sprintId}.md${state.asOf ? `?asOf=${state.asOf}` : ''}" download="sobrus-copilot-${state.sprintId}.md">Télécharger .md</a></div></div><pre class="report">${esc(state.data.report)}</pre></div>`;
+  return `<div class="card"><div class="signal-head"><h3>Rapport de sprint (Markdown)</h3><div class="chips"><button class="btn ghost" id="copy-report">Copier</button><a class="btn" href="/api/report/${state.sprintId}.md?${teamQuery()}${state.asOf ? `&asOf=${state.asOf}` : ''}" download="sobrus-copilot-${state.team.toLowerCase()}-${state.sprintId}.md">Télécharger .md</a></div></div><pre class="report">${esc(state.data.report)}</pre></div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -511,7 +544,7 @@ function viewLearn() {
 // ---------------------------------------------------------------------------
 // Couche IA générative
 // ---------------------------------------------------------------------------
-const aiKey = (kind) => `${state.sprintId}|${state.data.observe.asOf}|${kind}`;
+const aiKey = (kind) => `${state.team}|${state.sprintId}|${state.data.observe.asOf}|${kind}`;
 
 function aiBox(kind, label) {
   const entry = state.ai[aiKey(kind)];
@@ -529,7 +562,7 @@ async function runAi(kind) {
   state.ai[key] = { loading: true };
   render();
   try {
-    state.ai[key] = await api(`/api/ai/${state.sprintId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, asOf: state.asOf }) });
+    state.ai[key] = await api(`/api/ai/${state.sprintId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, asOf: state.asOf, team: state.team }) });
   } catch (err) {
     state.ai[key] = { error: err.message };
   }

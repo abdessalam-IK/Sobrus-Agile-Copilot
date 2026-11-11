@@ -22,14 +22,22 @@ const HOUR = 3600e3;
 const PAGE = Number(process.env.LINEAR_PAGE_SIZE || 8); // limite de complexité GraphQL Linear
 const ms = (ts) => new Date(ts).getTime();
 
+// Conventions de labels, communes aux équipes Sobrus (comparaison insensible à la casse :
+// Supply écrit « En Standby », Central « En standby »).
 export const LABELS = {
   blocking: ['En Standby'],
-  waiting: ['Besoin du Backend', 'Besoin du design', 'Besoin d’un meeting', "Besoin d'un meeting", "Besoin d'une réunion de conception", 'besoin du fichier', 'Besoin de reflexion', 'à discuter', 'Testing/Manque de détails'],
+  // Tout label commençant par « Besoin » (« Besoin du Backend », « Besoin de yahya »…) est une attente.
+  waiting: ['à discuter', 'Testing/Manque de détails'],
   quality: ['regression', 'Testing/Bug', 'Retour code review', 'Bug'],
   goal: ['commitment prod'],
-  notReady: ['Besoin du design', 'Testing/Manque de détails', 'Besoin de reflexion', 'à discuter', 'Update the description', "Besoin d'une réunion de conception", "Besoin d'un meeting", 'besoin du fichier', 'Besoin du Backend'],
+  notReady: ['Testing/Manque de détails', 'à discuter', 'Update the description'],
 };
-const BLOCK_LABELS = new Set([...LABELS.blocking, ...LABELS.waiting]);
+const norm = (l) => l.trim().toLowerCase();
+const inList = (list, l) => list.some((x) => norm(x) === norm(l));
+const isWaiting = (l) => /^besoin\b/i.test(l.trim()) || inList(LABELS.waiting, l);
+const isBlocking = (l) => inList(LABELS.blocking, l) || isWaiting(l);
+const isGoal = (l) => inList(LABELS.goal, l);
+const isNotReady = (l) => /^besoin\b/i.test(l.trim()) || inList(LABELS.notReady, l);
 const labelName = (l) => (l.parent ? `${l.parent.name}/${l.name}` : l.name);
 
 const STUCK = 'Stuck';
@@ -122,7 +130,7 @@ export function buildIssue(raw, cycle, nowTs = Date.now()) {
     for (const l of h.removedLabels || []) presentAtEntry.add(labelName(l));
   }
   if (mapState(initial) !== 'done') {
-    for (const l of presentAtEntry) if (BLOCK_LABELS.has(l)) openBlock(addedDate, `Label « ${l} »`, LABELS.waiting.includes(l) ? l : null);
+    for (const l of presentAtEntry) if (isBlocking(l)) openBlock(addedDate, `Label « ${l} »`, isWaiting(l) ? l : null);
   }
 
   // Événements pendant le cycle, dans l'ordre chronologique
@@ -134,7 +142,7 @@ export function buildIssue(raw, cycle, nowTs = Date.now()) {
     if (h.toState) applyState(h.toState, date);
     for (const l of h.addedLabels || []) {
       const n = labelName(l);
-      if (BLOCK_LABELS.has(n) && history.at(-1)?.to !== 'done') openBlock(date, `Label « ${n} »`, LABELS.waiting.includes(n) ? n : null);
+      if (isBlocking(n) && history.at(-1)?.to !== 'done') openBlock(date, `Label « ${n} »`, isWaiting(n) ? n : null);
     }
     for (const l of h.removedLabels || []) closeBlocks(date, `Label « ${labelName(l)} »`);
     if (h.fromEstimate != null && h.toEstimate != null && h.fromEstimate !== h.toEstimate) changes.push({ date, field: 'points', from: h.fromEstimate, to: h.toEstimate });
@@ -152,7 +160,7 @@ export function buildIssue(raw, cycle, nowTs = Date.now()) {
     parentKey: raw.parent?.identifier || null,
     isParent: raw.children.nodes.length > 0,
     assignee: raw.assignee?.id || 'non-assigne',
-    goal: [...labels, ...parentLabels].some((l) => LABELS.goal.includes(l)),
+    goal: [...labels, ...parentLabels].some(isGoal),
     labels,
     addedDate,
     removedDate,
@@ -194,7 +202,7 @@ function featuresOf(raws, cycle) {
         key: r.identifier,
         title: r.title,
         state: r.state.name,
-        goal: labels.some((l) => LABELS.goal.includes(l)),
+        goal: labels.some(isGoal),
         total: kids.length,
         done: done.length,
         points: kids.reduce((a, k) => a + (k.estimate || 0), 0),
@@ -259,14 +267,14 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
     onProgress(`Prochain cycle ${next.name || next.number}…`);
     const raws = await fetchCycleIssues(next);
     backlog = dropTrackedParents(raws.map((r) => buildIssue(r, next))).map((i, k) => {
-      const waiting = i.labels.find((l) => LABELS.waiting.includes(l));
+      const waiting = i.labels.find(isWaiting);
       return {
         key: i.key,
         title: i.title,
         epic: i.epic,
         points: i.points,
         priority: k + 1,
-        acceptanceCriteria: !i.labels.some((l) => LABELS.notReady.includes(l)) && i._descriptionLength >= 40,
+        acceptanceCriteria: !i.labels.some(isNotReady) && i._descriptionLength >= 40,
         dependency: waiting || null,
         dependencyConfirmed: waiting ? false : undefined,
         notes: i._descriptionLength < 40 ? 'Description vide ou très courte' : undefined,

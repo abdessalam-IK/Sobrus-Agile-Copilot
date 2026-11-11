@@ -323,6 +323,25 @@ function carryover(snap) {
   })];
 }
 
+/** Développeurs en surcharge quand on additionne leurs estimations sur tous les projets Sobrus. */
+function crossTeamOverload(snap, ctx) {
+  const p = ctx.portfolio;
+  if (!p || snap.closed) return [];
+  const inTeam = new Set(snap.capacity.map((c) => c.member));
+  const over = p.devs.filter((d) => d.overloaded && inTeam.has(d.id));
+  if (!over.length) return [];
+  const worst = Math.max(...over.map((d) => d.ratio));
+  return [signal({
+    type: 'cross_team_overload', theme: 'team',
+    severity: 0.35 + 0.15 * over.length + 0.3 * (worst - p.overloadRatio),
+    title: `${plural(over.length, 'développeur en surcharge', 'développeurs en surcharge')}, tous projets confondus`,
+    narrative: `En additionnant leurs estimations sur tous les projets du sprint, certains développeurs portent plus de ${pct(p.overloadRatio)} de ce qu’ils peuvent absorber (rythme de référence : ${p.rate} point/jour).`,
+    evidence: over.map((d) => `${d.name} : ${d.total} pts estimés (${d.projects.map((x) => `${x.product} ${x.points}`).join(' + ')}) pour ~${Math.round(d.capacityPoints)} absorbables en ${d.days} j${d.unestimated ? ` · ${d.unestimated} ticket${d.unestimated > 1 ? 's' : ''} non estimé${d.unestimated > 1 ? 's' : ''} en plus` : ''}`),
+    question: 'Quelle priorité donner entre les projets pour ces personnes, et qui peut reprendre une partie de leurs tickets ?',
+    recommendation: { text: 'Arbitrer entre projets avec les PO concernés avant que la surcharge ne se traduise en reports.', owner: 'Product Owners + Scrum Master' },
+  })];
+}
+
 /** Fonctionnalités qui ne peuvent pas se terminer : des sous-tickets ne sont pas dans le sprint. */
 function featureGaps(snap) {
   const blocked = (snap.features || []).filter((f) => f.outside.length);
@@ -373,8 +392,27 @@ function endLoading(snap) {
     })];
   }
   const elapsed = snap.dayIndex / snap.totalDays;
+  if (elapsed < 0.3) return [];
+  // Même unité que l'avancement de la santé : en tickets quand moins de 75 % des tickets sont estimés
+  // (sinon un ticket non estimé vaut 0 point et la trajectoire en points est faussée).
+  const estimated = snap.issues.filter((i) => i.points != null).length / Math.max(1, snap.issues.length);
+  if (estimated < 0.75) {
+    const m = snap.metrics;
+    const ideal = Math.round(m.scopeCount * (1 - elapsed) * 10) / 10;
+    const gap = (m.openCount - ideal) / Math.max(1, m.scopeCount);
+    if (gap < 0.15) return [];
+    return [signal({
+      type: 'burndown_gap', theme: 'flow',
+      severity: 0.2 + gap * 1.5,
+      title: `Retard sur la trajectoire : ${m.openCount} tickets restants contre ${ideal} attendus`,
+      narrative: `À ${pct(elapsed)} du sprint, l’écart avec la trajectoire idéale représente ${pct(gap)} des tickets du sprint (calcul en tickets : ${pct(1 - estimated)} des tickets ne sont pas estimés).`,
+      evidence: [`${m.doneCount}/${m.scopeCount} tickets terminés au jour ${snap.dayIndex}/${snap.totalDays}`],
+      question: 'Le retard vient-il de tickets bloqués, de tickets plus gros que prévu, ou d’ajouts ?',
+      recommendation: { text: 'Faire un point de mi-sprint court avec le PO pour ajuster le périmètre.', owner: 'Scrum Master' },
+    })];
+  }
   const today = snap.burndown.filter((b) => b.remaining != null).at(-1);
-  if (!today || elapsed < 0.3) return [];
+  if (!today) return [];
   const gap = (today.remaining - today.ideal) / Math.max(1, snap.metrics.committedPoints);
   if (gap < 0.15) return [];
   return [signal({
@@ -490,7 +528,7 @@ function stakeholderFeedback(snap) {
 
 export const DETECTORS = [
   stuckIssues, blockers, dependencyBottleneck, recurringDependency, wipOverload, scopeChange, requirementChurn,
-  velocityTrend, overcommitment, forecast, carryover, featureGaps, estimationGap, endLoading, quality, concentration,
+  velocityTrend, overcommitment, forecast, carryover, crossTeamOverload, featureGaps, estimationGap, endLoading, quality, concentration,
   retroFollowThrough, stakeholderFeedback,
 ];
 

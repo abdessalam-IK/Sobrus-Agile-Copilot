@@ -25,7 +25,13 @@ npm run sync
 npm start
 ```
 
-Ouvrir http://localhost:4300. Ensuite, le bouton **↻ Synchroniser Linear** rafraîchit les données sans passer par le terminal.
+Ouvrir http://localhost:4300 et choisir le **projet** en haut de l'écran. Ensuite, le bouton **↻ Synchroniser Linear** rafraîchit tous les projets sans passer par le terminal.
+
+## Projets suivis
+
+Le Copilot suit plusieurs équipes Linear, une par projet. Aujourd'hui : **Sobrus Supply (SUPP)** et **Sobrus Central V2 (CEN)**. Pour en ajouter une, ajouter sa clé Linear dans `.env` (`LINEAR_TEAMS=SUPP,CEN,PHARM`) puis lancer `npm run sync`. Chaque projet est synchronisé dans `data/private/linear-<clé>.json`.
+
+**Charge des développeurs, tous projets** (page Sprint) : chaque projet garde sa propre capacité ; en plus, les estimations de chaque développeur sont additionnées sur tous les projets du sprint en cours. Au-delà de 1,2 fois ce qu'il peut absorber (jours disponibles × rythme de référence des 3 derniers sprints), le Copilot signale une **surcharge**.
 
 ## Comment ça marche
 
@@ -87,7 +93,7 @@ Corrections manuelles possibles dans `data/private/equipe.json` (facultatif, non
 - Les statuts suivent les types Linear ; « Done à tester » compte comme terminé.
 - « Todo for Dev » compte comme à faire (pas comme en cours) ; « Stuck » compte comme bloqué.
 - Un ticket parent est terminé quand tous ses sous-tickets le sont.
-- Labels d'attente (« Besoin du Backend », « En Standby »…) = blocages ; label « commitment prod » = objectif du sprint.
+- Labels d'attente (tout label commençant par « Besoin », « En Standby », « à discuter »…) = blocages, sans tenir compte des majuscules ; label « commitment prod » = objectif du sprint.
 - Dates converties en heure du Maroc.
 
 ## Ligne de commande
@@ -105,8 +111,7 @@ node cli.js report --out rapport.md
 | Variable | Rôle | Défaut |
 |----------|------|--------|
 | `LINEAR_API_KEY` | Clé API Linear (lecture seule) | — |
-| `LINEAR_TEAM` | Équipe Linear synchronisée | `SUPP` |
-| `SOBRUS_DATA_FILE` | Fichier de données | `data/private/linear-supp.json` |
+| `LINEAR_TEAMS` | Équipes Linear suivies (clés, séparées par des virgules) | `SUPP,CEN` |
 | `PORT` | Port HTTP | `4300` |
 | `SOBRUS_AI_PSEUDONYMIZE` | Remplace les prénoms par « Membre A, B… » avant l'envoi à Claude | `true` |
 

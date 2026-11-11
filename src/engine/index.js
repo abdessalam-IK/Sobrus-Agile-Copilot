@@ -9,8 +9,10 @@ import { learn } from './learn.js';
 /**
  * Analyse un sprint à une date donnée.
  * Les sprints précédents sont analysés à leur date de fin pour constituer l'historique.
+ * `portfolio` (facultatif) = la charge des développeurs tous projets confondus (voir portfolio.js) :
+ * elle ne concerne que le sprint en cours, regardé à la date du jour.
  */
-export function analyze(dataset, sprintId, { asOf } = {}) {
+export function analyze(dataset, sprintId, { asOf, portfolio = null } = {}) {
   const idx = dataset.sprints.findIndex((s) => s.id === sprintId);
   if (idx < 0) throw new Error(`Sprint inconnu : ${sprintId}`);
 
@@ -19,7 +21,8 @@ export function analyze(dataset, sprintId, { asOf } = {}) {
     const s = dataset.sprints[k];
     const snap = observeSprint(dataset, s.id, k === idx ? asOf : undefined);
     const previous = history.filter((h) => h.snap.closed).map((h) => h.snap);
-    const signals = understand(snap, { previous, dataset });
+    const current = k === idx && s.status === 'active' && !asOf;
+    const signals = understand(snap, { previous, dataset, portfolio: current ? portfolio : null });
     const thought = think(snap, signals);
     history.push({ snap, signals, thought });
   }
@@ -29,7 +32,8 @@ export function analyze(dataset, sprintId, { asOf } = {}) {
   const prepared = prepare(snap, thought, history, dataset);
   const report = reportMarkdown({ snap, thought, prepared, learned });
 
-  return { observe: snap, think: thought, prepare: prepared, learn: learned, report };
+  const activeNow = dataset.sprints[idx].status === 'active' && !asOf;
+  return { observe: snap, think: thought, prepare: prepared, learn: learned, report, portfolio: activeNow ? portfolio : null };
 }
 
 export function summary(dataset) {
