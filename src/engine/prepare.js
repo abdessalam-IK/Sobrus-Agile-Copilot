@@ -123,7 +123,7 @@ function planning(snap, thought, history, dataset, names) {
     const days = workingDays(next.start, next.end, holidays);
     const members = deliveryMembers(dataset.team, next).map((m) => {
       const off = (next.absences?.[m.id] || []).filter((d) => days.includes(d));
-      return { member: names(m.id), days: (days.length - off.length) * (m.allocation ?? 1), absences: off.length, allocation: m.allocation ?? 1 };
+      return { member: names(m.id), role: m.role, days: (days.length - off.length) * (m.allocation ?? 1), absences: off.length, allocation: m.allocation ?? 1 };
     });
     capacity = { sprint: next.name, start: next.start, end: next.end, workingDays: days.length, personDays: sum(members, (x) => x.days), members };
   }
@@ -240,7 +240,7 @@ export function reportMarkdown({ snap, thought, prepared, learned, flow, objecti
   L.push('');
   if (prepared.planning.range) {
     L.push('## Prochain Sprint Planning');
-    L.push(`- Capacité ${prepared.planning.capacity.sprint} : ${prepared.planning.capacity.personDays} jours-personne`);
+    L.push(`- Équipe ${prepared.planning.capacity.sprint} : ${prepared.planning.capacity.members.map((m) => `${m.member}${m.role ? ` (${m.role})` : ''}${m.absences ? `, absent ${m.absences} j` : ''}`).join(', ')}`);
     L.push(`- Fourchette réaliste : ${prepared.planning.range.low}–${prepared.planning.range.high} pts, engagement suggéré ≈ ${prepared.planning.range.recommended} pts (buffer urgences ${prepared.planning.range.buffer} pts)`);
     for (const c of prepared.planning.toChallenge) L.push(`- À challenger : ${c.key} ${c.title} — ${c.flags.map((f) => f.text).join(' ; ')}`);
     L.push('');

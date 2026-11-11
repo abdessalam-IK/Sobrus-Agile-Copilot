@@ -287,23 +287,41 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
     });
   }
 
-  // Équipe : toutes les personnes assignées sur la période.
-  // Capacité : seuls les développeurs comptent. Référence = liste « Développeurs » de la Sheet Config
-  // (les responsables assignés dans Linear restent visibles mais hors capacité), corrigée par
-  // data/private/equipe.json si besoin : { "inclure": [emails], "exclure": [emails], "allocation": { email: 0.5 } }.
+  // Équipe du projet : les membres déclarés dans data/private/equipe.json (« equipes » → clé Linear).
+  // Toute autre personne assignée à un ticket du projet reste visible :
+  //  - « intervention » = développeur d'une autre équipe qui aide ponctuellement (ses tickets sont suivis, il ne
+  //    compte pas dans la capacité de ce projet) ;
+  //  - « hors équipe » = PM, PO, design… (ni capacité ni charge).
+  // Sans composition déclarée pour l'équipe : repli sur la liste « Développeurs » de la Sheet Config.
+  const roster = teamConfig.equipes?.[team.key];
+  const allMembers = new Set(Object.values(teamConfig.equipes || {}).flatMap((e) => (e.membres || []).map((m) => m.email.toLowerCase())));
   const devEmails = sheets ? new Set(sheets.developers.map((d) => d.email)) : null;
-  const include = new Set((teamConfig.inclure || []).map((e) => e.toLowerCase()));
-  const exclude = new Set((teamConfig.exclure || []).map((e) => e.toLowerCase()));
+  if (roster) {
+    // Les membres déclarés font partie de l'équipe même s'ils n'ont aucun ticket sur la période
+    const wanted = roster.membres.map((m) => m.email.toLowerCase()).filter((e) => ![...members.values()].some((u) => u.email?.toLowerCase() === e));
+    if (wanted.length) {
+      const { users } = await linear('query($emails: [String!]) { users(filter: { email: { in: $emails } }, first: 50) { nodes { id name email } } }', { emails: wanted });
+      for (const u of users.nodes) members.set(u.id, u);
+    }
+  }
   const team_ = [...members.values()].map((m) => {
     const email = m.email?.toLowerCase();
-    const isDev = !exclude.has(email) && (include.has(email) || !devEmails || devEmails.has(email));
-    const allocation = teamConfig.allocation?.[email];
-    return { id: m.id, name: m.name, email, role: isDev ? 'Développeur' : 'Hors capacité (responsable, PO, design…)', delivery: isDev, ...(allocation != null && { allocation }) };
+    if (roster) {
+      const member = roster.membres.find((x) => x.email.toLowerCase() === email);
+      if (member) return { id: m.id, name: m.name, email, role: member.role, kind: 'member', delivery: true };
+      const outsideRole = roster.hors_equipe?.[email];
+      const isDev = !outsideRole && (allMembers.has(email) || devEmails?.has(email));
+      return { id: m.id, name: m.name, email, role: outsideRole || (isDev ? 'Développeur d’une autre équipe' : 'Hors équipe (PM, PO, design…)'), kind: isDev ? 'guest' : 'other', delivery: false };
+    }
+    const isDev = !devEmails || devEmails.has(email);
+    return { id: m.id, name: m.name, email, role: isDev ? 'Développeur' : 'Hors équipe (PM, PO, design…)', kind: isDev ? 'member' : 'other', delivery: isDev };
   });
-  // Dans un sprint, un développeur compte dans la capacité s'il y a au moins un ticket de l'équipe
-  // (la Sheet couvre tout Sobrus : un dev d'une autre équipe ne doit pas gonfler la capacité de celle-ci).
+  // Capacité d'un sprint : les membres de l'équipe (composition déclarée), ou à défaut les développeurs
+  // de la Sheet qui ont au moins un ticket dans ce sprint.
   const devIds = new Set(team_.filter((m) => m.delivery).map((m) => m.id));
-  for (const s of sprints) s.capacityMembers = [...new Set(s.issues.map((i) => i.assignee))].filter((id) => devIds.has(id));
+  for (const s of sprints) {
+    s.capacityMembers = roster ? [...devIds] : [...new Set(s.issues.map((i) => i.assignee))].filter((id) => devIds.has(id));
+  }
   const holidays = sheets?.holidays || [];
   if (sheets) {
     const byEmail = new Map(team_.map((m) => [m.email, m]));

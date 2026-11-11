@@ -15,6 +15,6 @@ for (const r of results) {
   for (const s of r.sprints) {
     console.log(`  ${s.name.padEnd(20)} ${s.start} → ${s.end}  ${String(s.issues).padStart(3)} issues · ${s.done} terminées · ${s.status}`);
   }
-  console.log(`  Développeurs : ${r.developers.join(', ') || '—'}`);
-  console.log(`  Hors capacité : ${r.outsideCapacity.join(', ') || '—'}`);
+  console.log(`  Équipe : ${r.developers.join(', ') || '—'}`);
+  console.log(`  Autres personnes assignées : ${r.outsideCapacity.join(', ') || '—'}`);
 }

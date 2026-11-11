@@ -39,6 +39,7 @@ const STATUS = { todo: 'À faire', in_progress: 'En cours', review: 'En revue', 
 const LEVEL_COLOR = { critical: 'var(--critical)', attention: 'var(--attention)', watch: 'var(--watch)', info: 'var(--info)' };
 
 const name = (id) => state.summary?.team.find((m) => m.id === id)?.name || id;
+const role = (id) => state.summary?.team.find((m) => m.id === id)?.role || '';
 
 async function api(path, opts) {
   const res = await fetch(path, opts);
@@ -526,14 +527,21 @@ function portfolioCard(p) {
   const projects = p.projects.map((x) => x.product);
   const rows = p.devs.map((d) => `<tr${d.overloaded ? ' class="overloaded"' : ''}>
     <td><b>${esc(d.name)}</b>${d.multiProject ? ' <span class="tag brand">multi-projets</span>' : ''}</td>
-    ${projects.map((name) => { const x = d.projects.find((y) => y.product === name); return `<td class="num">${x ? `${x.points}${x.unestimated ? ` <span class="small muted">+${x.unestimated} n.e.</span>` : ''}` : '<span class="muted">—</span>'}</td>`; }).join('')}
+    ${projects.map((name) => { const x = d.projects.find((y) => y.product === name); return `<td class="num">${x ? `${x.points}${x.unestimated ? ` <span class="small muted">+${x.unestimated} n.e.</span>` : ''}${x.intervention ? ' <span class="tag">intervention</span>' : ''}` : '<span class="muted">—</span>'}</td>`; }).join('')}
     <td class="num"><b>${d.total}</b></td>
-    <td class="num">${d.capacityPoints != null ? `~${Math.round(d.capacityPoints)}` : '—'} <span class="small muted">(${r1(d.days)} j)</span></td>
+    <td class="num">${d.capacityPoints != null ? `~${Math.round(d.capacityPoints)}` : '—'}</td>
     <td>${d.overloaded ? `<span class="tag red">surcharge ×${r2(d.ratio)}</span>` : d.ratio != null ? `<span class="tag ${d.ratio > 1 ? 'orange' : 'green'}">×${r2(d.ratio)}</span>` : ''}</td>
   </tr>`).join('');
   return `<div class="section-title"><h2>Charge des développeurs, tous projets</h2><span class="muted small">Estimations de chaque développeur sur tous les projets du sprint · surcharge au-delà de ×${r2(p.overloadRatio)}</span></div>
     <div class="card"><table><thead><tr><th>Développeur</th>${projects.map((n) => `<th class="num">${esc(n)}</th>`).join('')}<th class="num">Total (pts)</th><th class="num">Absorbable</th><th>Charge</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="small muted" style="margin-top:8px">Absorbable = jours disponibles (congés et fériés déduits) × rythme de référence de ${r2(p.rate)} point/jour, mesuré sur les 3 derniers sprints de tous les projets. « n.e. » = tickets non estimés, non comptés dans le total.</p></div>`;
+}
+
+/** Personnes hors équipe qui ont des tickets dans le sprint : leur intervention, sans compter dans la capacité. */
+function outsideList(load, kind, title) {
+  const rows = load.filter((l) => l.outside && l.kind === kind && l.tickets);
+  if (!rows.length) return '';
+  return `<h4 style="margin-top:14px">${title}</h4>${list(rows.map((l) => `<b>${esc(name(l.member))}</b> <span class="muted small">— ${l.tickets} ticket${l.tickets > 1 ? 's' : ''} (${l.doneTickets} terminé${l.doneTickets > 1 ? 's' : ''})${l.donePoints + l.remainingPoints ? `, ${l.donePoints + l.remainingPoints} pts` : ''}</span>`))}`;
 }
 
 /** Fonctionnalités = tickets parents, terminés seulement quand tous leurs sous-tickets le sont. */
@@ -555,7 +563,7 @@ function viewObserve() {
   const maxLoad = Math.max(1, ...o.load.map((l) => l.remainingPoints + l.donePoints));
   const committed = o.issues.filter((i) => i.committed);
   return `
-    <div class="section-title" id="kpis"><h2>Indicateurs du sprint</h2><span class="muted small">Données au ${dm(o.asOf)} · ${o.issues.length} tickets · ${m.personDays} jours-personne</span></div>
+    <div class="section-title" id="kpis"><h2>Indicateurs du sprint</h2><span class="muted small">Données au ${dm(o.asOf)} · ${o.issues.length} tickets</span></div>
     <div class="kpis">
       ${kpi('Tickets terminés', `${m.doneCount}<span class="muted small"> / ${m.scopeCount}</span>`, m.openUnestimated ? `dont ${m.openUnestimated} restant${m.openUnestimated > 1 ? 's' : ''} non estimé${m.openUnestimated > 1 ? 's' : ''}` : 'tous estimés')}
       ${kpi('Points estimés terminés', `${m.donePoints}<span class="muted small"> / ${m.scopePoints}</span>`, 'un ticket non estimé compte 0')}
@@ -570,9 +578,11 @@ function viewObserve() {
     </div>
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card"><h3>Burndown</h3>${burndownChart(o)}</div>
-      <div class="card"><h3>Charge par personne</h3><p class="small muted">Capacité : ${o.capacity.length} développeur${o.capacity.length > 1 ? 's' : ''}, ${r1(o.metrics.personDays)} jours-personne (congés et jours fériés déduits). Les profils non-développeurs sont affichés « hors capacité » et ne comptent pas.</p>
-        ${o.load.map((l) => `<div class="bar-row${l.outside ? ' outside' : ''}"><span title="${l.outside ? 'Hors capacité : responsable, PO, design… (non compté dans la capacité)' : 'Développeur'}">${esc(name(l.member))}${l.outside ? ' <span class="tag">hors capacité</span>' : ''}</span><div class="bar"><span style="width:${(l.donePoints / maxLoad) * 100}%;background:var(--brand)"></span><span style="width:${(l.remainingPoints / maxLoad) * 100}%;background:var(--attention)"></span></div><span class="small muted">${l.donePoints}/${l.donePoints + l.remainingPoints} pts${l.upcomingAbsences.length ? ` · ✈ ${l.upcomingAbsences.length} j` : ''}</span></div>`).join('')}
+      <div class="card"><h3>Charge de l’équipe</h3>
+        ${o.load.filter((l) => !l.outside).map((l) => `<div class="bar-row"><span>${esc(name(l.member))} <span class="small muted">${esc(role(l.member))}</span></span><div class="bar"><span style="width:${(l.donePoints / maxLoad) * 100}%;background:var(--brand)"></span><span style="width:${(l.remainingPoints / maxLoad) * 100}%;background:var(--attention)"></span></div><span class="small muted">${l.donePoints}/${l.donePoints + l.remainingPoints} pts${l.upcomingAbsences.length ? ` · ✈ ${l.upcomingAbsences.length} j` : ''}</span></div>`).join('')}
         <div class="chips small" style="margin-top:8px"><span class="tag brand">■ terminé</span><span class="tag orange">■ restant</span><span class="muted">✈ absences à venir</span></div>
+        ${outsideList(o.load, 'guest', 'Interventions d’autres équipes')}
+        ${outsideList(o.load, 'other', 'Autres personnes assignées (PM, PO, design…)')}
       </div>
     </div>
     <div class="section-title" id="board"><h2>Board du sprint</h2><span class="muted small">Bordure rouge : bloqué · orange : immobile ≥ 3 jours</span></div>
@@ -694,11 +704,11 @@ function prepRetro(r) {
 
 function prepPlanning(p) {
   return `<div class="grid cols-2">
-    <div class="card"><h3>Capacité ${p.capacity ? `— ${esc(p.capacity.sprint)}` : ''}</h3>
-      ${p.capacity ? `<p>${p.capacity.workingDays} jours ouvrés · <b>${p.capacity.personDays} jours-personne</b></p>${list(p.capacity.members.map((m) => `${esc(m.member)} : ${m.days} j${m.absences ? ` <span class="tag orange">${m.absences} j d’absence</span>` : ''}`))}` : '<p class="empty">Sprint suivant non renseigné.</p>'}
-      ${p.range ? `<div class="kpis">${kpi('Fourchette réaliste', `${p.range.low}–${p.range.high}`, 'points (vélocité récente × capacité)')}${kpi('Buffer urgences', p.range.buffer, 'moyenne des ajouts')}${kpi('Engagement suggéré', `≈ ${p.range.recommended}`, 'à discuter en équipe')}</div>` : ''}
+    <div class="card"><h3>Équipe ${p.capacity ? `— ${esc(p.capacity.sprint)}` : ''}</h3>
+      ${p.capacity ? list(p.capacity.members.map((m) => `<b>${esc(m.member)}</b> <span class="muted small">${esc(m.role || '')}</span>${m.absences ? ` <span class="tag orange">absent${m.absences > 1 ? ` ${m.absences} jours` : ' 1 jour'}</span>` : ''}`)) : '<p class="empty">Sprint suivant non renseigné.</p>'}
+      ${p.range ? `<div class="kpis">${kpi('Fourchette réaliste', `${p.range.low}–${p.range.high} pts`, 'au rythme des 3 derniers sprints')}${kpi('Ajouts habituels', `${p.range.buffer} pts`, 'ajoutés en moyenne en cours de sprint')}${kpi('Engagement suggéré', `≈ ${p.range.recommended} pts`, 'fourchette moins les ajouts habituels')}</div>` : ''}
       <h4 style="margin-top:12px">Historique</h4>
-      <table><thead><tr><th>Sprint</th><th class="num">Engagé</th><th class="num">Livré</th><th class="num">pt/j-p</th></tr></thead><tbody>${p.velocityHistory.map((v) => `<tr><td>${esc(v.sprint)}</td><td class="num">${v.committed}</td><td class="num">${v.done}</td><td class="num">${r2(v.perPersonDay)}</td></tr>`).join('')}</tbody></table>
+      <table><thead><tr><th>Sprint</th><th class="num">Engagé au Planning</th><th class="num">Livré</th></tr></thead><tbody>${p.velocityHistory.map((v) => `<tr><td>${esc(v.sprint)}</td><td class="num">${v.committed} pts</td><td class="num">${v.done} pts</td></tr>`).join('')}</tbody></table>
       <h4 style="margin-top:12px">Préconditions</h4>${list(p.preconditions.map(esc))}
       <h4>Questions pour le Planning</h4>${p.questions.map((q) => `<div class="question">${esc(q)}</div>`).join('')}
     </div>

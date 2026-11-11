@@ -22,37 +22,48 @@ export function crossTeamLoad(datasets) {
     .filter((x) => x.sprint);
   if (!actives.length) return null;
 
-  // Rythme de référence : points livrés par jour-personne sur les 3 derniers sprints terminés de chaque projet
+  // Rythme de référence : points livrés par les membres des équipes, rapportés à leurs jours disponibles,
+  // sur les 3 derniers sprints terminés de chaque projet. Les tickets livrés par des intervenants extérieurs
+  // ne comptent pas : ils gonfleraient le rythme d'un développeur.
   let refPoints = 0;
   let refDays = 0;
   for (const { ds } of actives) {
     for (const s of ds.sprints.filter((x) => x.status === 'closed').slice(-3)) {
       const o = observeSprint(ds, s.id);
-      refPoints += o.metrics.donePoints;
+      const members = new Set(o.capacity.map((c) => c.member));
+      refPoints += sum(o.issues.filter((i) => i.done && members.has(i.assignee)), pts);
       refDays += o.metrics.personDays;
     }
   }
   const rate = refDays ? refPoints / refDays : null;
 
+  // 1. Les développeurs : les membres de chaque équipe (un développeur appartient à son équipe)
   const devs = new Map();
   const projects = [];
-  for (const { ds, sprint } of actives) {
-    const o = observeSprint(ds, sprint.id);
-    const product = ds.meta.product;
-    projects.push({ team: ds.meta.teamKey, product, sprint: sprint.name, start: sprint.start, end: sprint.end });
+  const snaps = actives.map(({ ds, sprint }) => ({ ds, sprint, o: observeSprint(ds, sprint.id) }));
+  for (const { ds, sprint, o } of snaps) {
+    projects.push({ team: ds.meta.teamKey, product: ds.meta.product, sprint: sprint.name, start: sprint.start, end: sprint.end });
     for (const c of o.capacity) {
-      const mine = o.issues.filter((i) => i.assignee === c.member);
-      const dev = devs.get(c.member) || { id: c.member, name: ds.team.find((m) => m.id === c.member)?.name || c.member, days: 0, projects: [] };
+      const dev = devs.get(c.member) || { id: c.member, name: ds.team.find((m) => m.id === c.member)?.name || c.member, days: 0, home: [], projects: [] };
       dev.days = Math.max(dev.days, c.days); // même personne, mêmes absences : on ne cumule pas les jours
+      dev.home.push(ds.meta.product);
+      devs.set(c.member, dev);
+    }
+  }
+  // 2. Leur charge : leurs tickets dans leur équipe ET leurs interventions sur les autres projets
+  for (const { ds, o } of snaps) {
+    for (const dev of devs.values()) {
+      const mine = o.issues.filter((i) => i.assignee === dev.id);
+      if (!mine.length && !dev.home.includes(ds.meta.product)) continue;
       dev.projects.push({
         team: ds.meta.teamKey,
-        product,
+        product: ds.meta.product,
+        intervention: !dev.home.includes(ds.meta.product),
         points: sum(mine, pts),
         remaining: sum(mine.filter((i) => !i.done), pts),
         tickets: mine.length,
         unestimated: mine.filter((i) => i.points == null).length,
       });
-      devs.set(c.member, dev);
     }
   }
 

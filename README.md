@@ -96,21 +96,24 @@ Trois niveaux, du plus synthétique au plus détaillé.
 
 ## Équipe et capacité
 
-Toutes les personnes assignées dans Linear sont visibles, mais **seuls les développeurs comptent dans la capacité** :
-
-1. **Référence** : la liste « Développeurs » de l'onglet *Config* de la Sheet. Les autres personnes (responsables, PO, design…) sont affichées « hors capacité ».
-2. **Par sprint** : un développeur de cette liste compte dans un sprint s'il a au moins un ticket de l'équipe dans ce sprint.
-3. **Congés et jours fériés** (onglet *Manual_Input*) sont déduits.
-
-Corrections manuelles possibles dans `data/private/equipe.json` (facultatif, non versionné), prises en compte à la prochaine synchronisation :
+La composition de chaque équipe est déclarée dans `data/private/equipe.json` (non versionné, pris en compte à la prochaine synchronisation) :
 
 ```json
 {
-  "inclure": ["prenom.n@sobrus.com"],
-  "exclure": ["prenom.n@sobrus.com"],
-  "allocation": { "prenom.n@sobrus.com": 0.5 }
+  "equipes": {
+    "SUPP": {
+      "membres": [{ "email": "prenom.n@sobrus.com", "role": "Tech Lead & Back-end" }],
+      "hors_equipe": { "prenom.n@sobrus.com": "PM" }
+    }
+  }
 }
 ```
+
+- **Membres** : ils forment l'équipe du projet (charge, rythme, Planning), même sans ticket sur la période. Congés et jours fériés (Sheet, onglet *Manual_Input*) sont déduits.
+- **Interventions d'autres équipes** : un développeur membre d'une autre équipe qui prend un ou deux tickets du projet est affiché à part (tickets, points). Il ne fait pas partie de l'équipe, mais ces tickets s'ajoutent à sa charge tous projets confondus.
+- **Autres personnes assignées** (PM, PO, design…) : visibles, sans effet sur la charge.
+
+Sans composition déclarée pour une équipe, le Copilot se replie sur la liste « Développeurs » de la Sheet Config. Linear n'enregistre pas d'heures : les interventions sont mesurées en tickets et en points.
 
 ## Règles Linear appliquées
 

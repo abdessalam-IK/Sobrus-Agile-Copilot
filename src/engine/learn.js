@@ -7,7 +7,7 @@ import { mean, median, slope, round, pct } from '../lib/stats.js';
 
 export const LEARN_METRICS = [
   { key: 'donePoints', label: 'Points livrés', better: 'up', format: 'num' },
-  { key: 'velocityPerPersonDay', label: 'Points par jour-personne', better: 'up', format: 'dec' },
+  { key: 'velocityPerPersonDay', label: 'Points livrés par développeur et par jour', better: 'up', format: 'dec' },
   { key: 'planningAccuracy', label: 'Tickets planifiés livrés', better: 'up', format: 'pct' },
   { key: 'plannedShareOfDone', label: 'Part du livré qui était planifiée', better: 'up', format: 'pct' },
   { key: 'unplannedRatio', label: 'Tickets imprévus (entrés après le Planning)', better: 'down', format: 'pct' },

@@ -178,8 +178,9 @@ export function observeSprint(dataset, sprintId, asOf) {
       upcomingAbsences: c.absences.filter((d) => d > at),
     };
   });
-  // Personnes hors capacité (responsables, PO…) qui portent tout de même des tickets : visibles, mais
-  // exclues des calculs de capacité et de concentration.
+  // Personnes hors équipe qui portent tout de même des tickets du projet : visibles, mais exclues des
+  // calculs de capacité et de concentration. « guest » = développeur d'une autre équipe (intervention
+  // ponctuelle), « other » = PM, PO, design…
   const counted = new Set(capacity.map((c) => c.member));
   for (const member of new Set(issues.map((i) => i.assignee))) {
     if (counted.has(member)) continue;
@@ -187,6 +188,9 @@ export function observeSprint(dataset, sprintId, asOf) {
     load.push({
       member,
       outside: true,
+      kind: dataset.team.find((m) => m.id === member)?.kind || 'other',
+      tickets: mine.length,
+      doneTickets: mine.filter((i) => i.done).length,
       capacityDays: 0,
       remainingPoints: sum(mine.filter((i) => !i.done), pts),
       donePoints: sum(mine.filter((i) => i.done), pts),
