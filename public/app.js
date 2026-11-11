@@ -15,7 +15,7 @@ const PAGES = [
   { id: 'daily', group: 'Pendant le sprint', label: 'Daily', sub: 'Préparer le point du jour', intro: 'À ouvrir 5 minutes avant le Daily : ce qui a bougé depuis hier, ce qui est bloqué ou immobile, et les questions à poser à l’équipe.' },
   { id: 'sprint', group: 'Pendant le sprint', label: 'Sprint', sub: 'Board, burndown, charge', intro: 'Les données du sprint telles que le Copilot les lit dans Linear : indicateurs, board, burndown et charge par personne.' },
   { id: 'signals', group: 'Pendant le sprint', label: 'Signaux', sub: 'Le détail, avec les preuves', intro: 'Chaque signal détecté, avec ses preuves (tickets, dates, chiffres) et la question à poser à l’équipe.' },
-  { id: 'review', group: 'Fin de sprint', label: 'Sprint Review', sub: 'Préparer la démo', intro: 'L’objectif du sprint, ce qui est livré, ce qui ne l’est pas et pourquoi, et les messages clés à partager.' },
+  { id: 'review', group: 'Fin de sprint', label: 'Sprint Review', sub: 'Livré, non livré, messages', intro: 'L’objectif du sprint, ce qui est livré, ce qui ne l’est pas et pourquoi, et les messages clés à partager.' },
   { id: 'retro', group: 'Fin de sprint', label: 'Rétrospective', sub: 'Préparer l’atelier', intro: 'Les données à montrer, la chronologie des événements, les questions à poser et le suivi des actions précédentes.' },
   { id: 'planning', group: 'Fin de sprint', label: 'Prochain Planning', sub: 'Capacité et points à challenger', intro: 'La capacité du prochain sprint (congés et jours fériés inclus), une fourchette d’engagement réaliste et les tickets à challenger.' },
   { id: 'trends', group: 'Prendre du recul', label: 'Tendances', sub: 'Ce qui change de sprint en sprint', intro: 'La comparaison des sprints : qu’est-ce qui est en train de changer dans votre manière de travailler ?' },
@@ -312,20 +312,20 @@ function viewObserve() {
   return `
     <div class="section-title" id="kpis"><h2>Indicateurs du sprint</h2><span class="muted small">Données au ${dm(o.asOf)} · ${o.issues.length} tickets · ${m.personDays} jours-personne</span></div>
     <div class="kpis">
-      ${kpi('Tickets terminés', `${m.doneCount}<span class="muted small"> / ${m.scopeCount}</span>`, m.openUnestimated ? `dont ${m.openUnestimated} restant(s) non estimé(s)` : 'tous estimés')}
+      ${kpi('Tickets terminés', `${m.doneCount}<span class="muted small"> / ${m.scopeCount}</span>`, m.openUnestimated ? `dont ${m.openUnestimated} restant${m.openUnestimated > 1 ? 's' : ''} non estimé${m.openUnestimated > 1 ? 's' : ''}` : 'tous estimés')}
       ${kpi('Points estimés terminés', `${m.donePoints}<span class="muted small"> / ${m.scopePoints}</span>`, 'un ticket non estimé compte 0')}
       ${kpi('Engagement initial', m.committedPoints, `${committed.length} tickets au Planning`)}
       ${kpi('Ajouts en cours', `+${m.addedPoints}`, `${pct(m.scopeChangeRatio)} de l’engagement`)}
       ${o.closed ? kpi('Fiabilité (say/do)', pct(m.sayDo), 'engagé et livré') : kpi('Probabilité de finir', o.forecast ? pct(o.forecast.probability) : '—', 'simulation Monte Carlo')}
       ${kpi('Cycle time moyen', m.avgCycleTime ? `${r1(m.avgCycleTime)} j` : '—', 'début → terminé')}
       ${kpi('WIP moyen', r1(m.avgWip), `${o.load.length} personnes`)}
-      ${kpi('Jours-ticket bloqués', m.blockedIssueDays, `${m.blockedNowCount} bloqué(s) maintenant`)}
+      ${kpi('Jours-ticket bloqués', m.blockedIssueDays, `${m.blockedNowCount} bloqué${m.blockedNowCount > 1 ? 's' : ''} maintenant`)}
       ${kpi('Tickets rouverts', m.reopenCount, `bugs : ${pct(m.bugRatio)} des tickets`)}
       ${kpi('Objectif', `${m.goalDone}/${m.goalTotal}`, 'éléments clés terminés')}
     </div>
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card"><h3>Burndown</h3>${burndownChart(o)}</div>
-      <div class="card"><h3>Charge par personne</h3><p class="small muted">Capacité : ${o.capacity.length} développeur(s), ${r1(o.metrics.personDays)} jours-personne (congés et jours fériés déduits). Les profils non-développeurs sont affichés « hors capacité » et ne comptent pas.</p>
+      <div class="card"><h3>Charge par personne</h3><p class="small muted">Capacité : ${o.capacity.length} développeur${o.capacity.length > 1 ? 's' : ''}, ${r1(o.metrics.personDays)} jours-personne (congés et jours fériés déduits). Les profils non-développeurs sont affichés « hors capacité » et ne comptent pas.</p>
         ${o.load.map((l) => `<div class="bar-row${l.outside ? ' outside' : ''}"><span title="${l.outside ? 'Hors capacité : responsable, PO, design… (non compté dans la capacité)' : 'Développeur'}">${esc(name(l.member))}${l.outside ? ' <span class="tag">hors capacité</span>' : ''}</span><div class="bar"><span style="width:${(l.donePoints / maxLoad) * 100}%;background:var(--brand)"></span><span style="width:${(l.remainingPoints / maxLoad) * 100}%;background:var(--attention)"></span></div><span class="small muted">${l.donePoints}/${l.donePoints + l.remainingPoints} pts${l.upcomingAbsences.length ? ` · ✈ ${l.upcomingAbsences.length} j` : ''}</span></div>`).join('')}
         <div class="chips small" style="margin-top:8px"><span class="tag brand">■ terminé</span><span class="tag orange">■ restant</span><span class="muted">✈ absences à venir</span></div>
       </div>
@@ -383,7 +383,7 @@ function viewOverview() {
   const { think: t } = state.data;
   return `
     ${t.crossReadings.length ? `<div class="card cross"><h2>Ce que les signaux racontent ensemble</h2><ul>${t.crossReadings.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
-    <div class="section-title"><h2>Insights par thème</h2><span class="muted small">${t.insights.length} thème(s)</span></div>
+    <div class="section-title"><h2>Insights par thème</h2><span class="muted small">${t.insights.length} thème${t.insights.length > 1 ? 's' : ''}</span></div>
     ${t.insights.length ? `<div class="grid cols-2">${t.insights.map((i) => `
       <div class="card insight ${i.level.id}">
         <div class="signal-head"><h3>${i.icon} ${esc(i.label)}</h3><span class="level ${i.level.id}">${i.level.label}</span></div>

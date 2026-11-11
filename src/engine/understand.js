@@ -185,7 +185,7 @@ function scopeChange(snap) {
     type: 'scope_change', theme: 'scope',
     severity: 0.2 + m.scopeChangeRatio * 2,
     title: `${m.addedPoints} points ajoutés après le Planning, en plus des ${m.committedPoints} engagés (+${pct(m.scopeChangeRatio)})`,
-    narrative: `${plural(added.length, 'élément a été ajouté', 'éléments ont été ajoutés')} après le Planning${urgent.length ? `, dont ${urgent.length} présenté(s) comme urgent(s)` : ''}.`,
+    narrative: `${plural(added.length, 'élément a été ajouté', 'éléments ont été ajoutés')} après le Planning${urgent.length ? `, dont ${urgent.length} présenté${urgent.length > 1 ? 's' : ''} comme urgent${urgent.length > 1 ? 's' : ''}` : ''}.`,
     evidence: added.map((i) => `${i.key} (+${i.points} pts, ajouté le ${i.addedDate}) — ${i.title}`),
     issues: keys(added),
     question: 'Ces ajouts étaient-ils réellement urgents ? Qu’avons-nous retiré en échange ?',
@@ -202,7 +202,7 @@ function requirementChurn(snap) {
     severity: 0.3 + 0.15 * churned.length + 0.03 * sum(churned, (i) => i.churn),
     title: `Besoin instable sur ${plural(churned.length, 'ticket')}`,
     narrative: 'Estimations ou critères d’acceptation modifiés pendant le sprint : le besoin n’était pas mûr au moment de l’engagement.',
-    evidence: churned.map((i) => `${i.key} — ${i.churn} modification(s) : ${i.changes.map((c) => `${c.field} ${c.from}→${c.to}`).join(', ')}`),
+    evidence: churned.map((i) => `${i.key} — ${i.churn} modification${i.churn > 1 ? 's' : ''} : ${i.changes.map((c) => `${c.field} ${c.from}→${c.to}`).join(', ')}`),
     issues: keys(churned),
     question: 'Qu’aurait-il fallu savoir avant le Planning pour éviter ces changements ?',
     recommendation: { text: 'Organiser un affinage dédié (PO + dev + QA) sur les règles métier avant de planifier ces sujets.', owner: 'Product Owner' },
@@ -314,7 +314,7 @@ function carryover(snap) {
   return [signal({
     type: 'carryover', theme: 'predictability',
     severity: 0.2 + 0.08 * carried.length + 0.25 * zombies.length,
-    title: zombies.length ? `${plural(zombies.length, 'ticket « zombie »', 'tickets « zombies »')} reporté(s) depuis 2 sprints ou plus` : `${plural(carried.length, 'ticket reporté', 'tickets reportés')} du sprint précédent`,
+    title: zombies.length ? `${plural(zombies.length, 'ticket « zombie »', 'tickets « zombies »')} reporté${zombies.length > 1 ? 's' : ''} depuis 2 sprints ou plus` : `${plural(carried.length, 'ticket reporté', 'tickets reportés')} du sprint précédent`,
     narrative: `${snap.metrics.carryoverPoints} points viennent de sprints précédents. Un report répété signale souvent un ticket trop gros, mal compris ou bloqué.`,
     evidence: carried.map((i) => `${i.key} — reporté ${i.carriedOver} fois — ${STATUS_LABELS[i.status]} — ${i.title}`),
     issues: keys(carried),
@@ -331,7 +331,7 @@ function featureGaps(snap) {
   return [signal({
     type: 'feature_gap', theme: 'scope',
     severity: 0.3 + 0.1 * blocked.length + 0.03 * missing + (blocked.some((f) => f.goal) ? 0.2 : 0),
-    title: `${plural(blocked.length, 'fonctionnalité ne peut', 'fonctionnalités ne peuvent')} pas se terminer ce sprint : ${missing} sous-ticket(s) hors du cycle`,
+    title: `${plural(blocked.length, 'fonctionnalité ne peut', 'fonctionnalités ne peuvent')} pas se terminer ce sprint : ${missing} sous-ticket${missing > 1 ? 's' : ''} hors du cycle`,
     narrative: 'Un ticket parent n’est terminé que lorsque tous ses sous-tickets le sont. Or certains sous-tickets ne sont planifiés dans aucun cycle (ou dans un autre) : la fonctionnalité restera ouverte quoi que fasse l’équipe.',
     evidence: blocked.map((f) => `${f.key} « ${f.title} » — ${f.done}/${f.total} sous-tickets terminés, hors cycle : ${f.outside.map((o) => `${o.key} (${o.state})`).join(', ')}`),
     issues: blocked.map((f) => f.key),
@@ -397,7 +397,7 @@ function quality(snap, ctx) {
   return [signal({
     type: 'quality', theme: 'quality',
     severity: 0.25 + 0.2 * reopened.length + (bugUp ? 0.15 : 0),
-    title: reopened.length ? `${plural(reopened.length, 'ticket rouvert', 'tickets rouverts')} après avoir été terminé(s)` : `Part des bugs en hausse (${pct(snap.metrics.bugRatio)})`,
+    title: reopened.length ? `${plural(reopened.length, 'ticket rouvert', 'tickets rouverts')} après avoir été terminé${reopened.length > 1 ? 's' : ''}` : `Part des bugs en hausse (${pct(snap.metrics.bugRatio)})`,
     narrative: `${reopened.length ? 'Des tickets « terminés » sont revenus : la Definition of Done ne protège pas complètement des régressions. ' : ''}${bugUp ? `Les bugs représentent ${pct(snap.metrics.bugRatio)} des tickets (moyenne historique ${pct(histBug)}).` : ''}`.trim(),
     evidence: reopened.map((i) => `${i.key} — ${i.title}${i.comments.filter((c) => /r[ée]gression|rouvert/i.test(c.text)).map((c) => ` « ${c.text} »`).join('')}`),
     issues: keys(reopened),
@@ -462,7 +462,7 @@ function retroFollowThrough(snap, ctx) {
     severity: 0.25 + 0.1 * open.length + 0.25 * recurring.length,
     title: recurring.length
       ? `Action de rétro récurrente jamais réalisée : « ${recurring[0].text} »`
-      : `${plural(open.length, 'action', 'actions')} de la dernière rétro non réalisée(s)`,
+      : `${plural(open.length, 'action', 'actions')} de la dernière rétro non réalisée${open.length > 1 ? 's' : ''}`,
     narrative: recurring.length
       ? 'La même décision revient de rétro en rétro sans être appliquée : la rétrospective risque de perdre sa crédibilité.'
       : 'Les engagements d’amélioration ne sont pas tous tenus.',

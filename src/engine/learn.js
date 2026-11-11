@@ -119,7 +119,7 @@ export function learn(history) {
   const zombies = [...lastSeen.values()].filter((i) => i.carriedOver >= 2 && !i.done);
   const finishedLate = [...lastSeen.values()].filter((i) => i.carriedOver >= 2 && i.done);
   if (zombies.length) {
-    patterns.push({ type: 'carryover', title: `${zombies.length} ticket(s) traversent les sprints sans aboutir`, detail: zombies.map((i) => `${i.key} « ${i.title} » (reporté ${i.carriedOver} fois)`).join(' ; ') });
+    patterns.push({ type: 'carryover', title: `${zombies.length > 1 ? `${zombies.length} tickets traversent` : '1 ticket traverse'} les sprints sans aboutir`, detail: zombies.map((i) => `${i.key} « ${i.title} » (reporté ${i.carriedOver} fois)`).join(' ; ') });
   }
   if (finishedLate.length >= 3) {
     patterns.push({ type: 'carryover', title: `${finishedLate.length} tickets n’ont abouti qu’après 2 reports ou plus`, detail: 'Signe de tickets trop gros ou démarrés trop tôt : à surveiller au découpage.' });

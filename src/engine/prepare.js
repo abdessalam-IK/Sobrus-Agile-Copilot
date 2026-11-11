@@ -187,7 +187,7 @@ export function reportMarkdown({ snap, thought, prepared, learned }) {
   L.push(`**Santé du sprint : ${thought.health}/100 (${thought.healthLabel})**`);
   L.push('');
   L.push('## Chiffres clés');
-  L.push(`- Tickets terminés : ${m.doneCount}/${m.scopeCount} · points estimés terminés : ${m.donePoints}/${m.scopePoints}${m.openUnestimated ? ` (${m.openUnestimated} ticket(s) restant(s) sans estimation)` : ''}`);
+  L.push(`- Tickets terminés : ${m.doneCount}/${m.scopeCount} · points estimés terminés : ${m.donePoints}/${m.scopePoints}${m.openUnestimated ? ` (${m.openUnestimated} ticket${m.openUnestimated > 1 ? 's' : ''} restant${m.openUnestimated > 1 ? 's' : ''} sans estimation)` : ''}`);
   if (m.sayDo != null) L.push(`- Fiabilité de l’engagement : ${pct(m.sayDo)}`);
   L.push(`- Objectif : ${m.goalDone}/${m.goalTotal} éléments clés terminés`);
   L.push(`- Ajouts en cours de sprint : +${m.addedPoints} pts · Jours-ticket bloqués : ${m.blockedIssueDays} · Tickets rouverts : ${m.reopenCount}`);
