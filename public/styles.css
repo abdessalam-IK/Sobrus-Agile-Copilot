@@ -232,3 +232,45 @@ svg text { fill: var(--muted); font-size: 11px; }
 .gauge a.small { color: var(--brand); }
 tr.overloaded td { background: var(--critical-soft); }
 .field select#team-select { min-width: 180px; }
+
+/* Vue Sobrus */
+.sobrus-head h1 { font-size: 22px; margin: 4px 0 6px; }
+.sobrus-summary { font-size: 16px; margin: 0 0 18px; }
+.status-pill { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.status-pill.ok { background: var(--ok-soft); color: var(--ok); }
+.status-pill.tension { background: var(--attention-soft); color: var(--attention); }
+.status-pill.risk { background: var(--critical-soft); color: var(--critical); }
+.project-card { border-top: 4px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.project-card.ok { border-top-color: var(--ok); }
+.project-card.tension { border-top-color: var(--attention); }
+.project-card.risk { border-top-color: var(--critical); }
+.pc-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.pc-head h3 { margin: 0; font-size: 18px; }
+.bar.big { height: 14px; border-radius: 7px; position: relative; overflow: visible; }
+.bar.big > span { background: var(--brand); border-radius: 7px; }
+.bar.big .marker { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--text); }
+.pc-main { margin: 0; }
+.pc-facts { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); }
+.pc-facts b { color: var(--text); }
+.project-card .btn { align-self: flex-start; }
+ol.decisions { margin: 0; padding-left: 22px; }
+ol.decisions > li { padding: 10px 0; border-bottom: 1px solid var(--border); }
+ol.decisions > li:last-child { border-bottom: 0; }
+ol.decisions ul { margin: 6px 0 0; padding-left: 18px; }
+.d-action { margin-top: 6px; color: var(--brand); }
+ul.changes { margin: 0; padding-left: 18px; }
+ul.changes li { margin: 6px 0; }
+
+/* Résumé d'un projet */
+.point { display: grid; grid-template-columns: 36px 1fr; gap: 12px; }
+.point-num { width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 700; }
+.point h3 { margin-top: 4px; }
+ol.actions { margin: 0; padding-left: 20px; }
+ol.actions li { margin: 6px 0; }
+
+/* Menu : analyses détaillées plus discrètes */
+.tab-group.secondary button { padding: 6px 12px; font-weight: 500; font-size: 13px; }
+
+/* Un élément masqué reste masqué, quel que soit son display */
+[hidden] { display: none !important; }
+.big-number { font-size: 32px; font-weight: 700; margin: 4px 0 0; }

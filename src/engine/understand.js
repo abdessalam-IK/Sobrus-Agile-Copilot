@@ -425,7 +425,7 @@ function quality(snap, ctx) {
     evidence: reopened.map((i) => `${i.key} — ${i.title}${i.comments.filter((c) => /r[ée]gression|rouvert/i.test(c.text)).map((c) => ` « ${c.text} »`).join('')}`),
     issues: keys(reopened),
     question: 'Qu’est-ce qui a manqué dans nos tests pour détecter ces régressions avant le « Terminé » ?',
-    recommendation: { text: 'Ajouter des tests de non-régression automatisés sur les zones rouvertes (tiers payant, synchronisation).', owner: 'Équipe + QA' },
+    recommendation: { text: 'Ajouter des tests de non-régression automatisés sur les zones rouvertes.', owner: 'Équipe + QA' },
   })];
 }
 

@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyze, summary } from './src/engine/index.js';
 import { crossTeamLoad } from './src/engine/portfolio.js';
+import { sobrusOverview } from './src/engine/sobrus.js';
 import { TEAMS, availableTeams, loadDataset, loadAll } from './src/store.js';
 import { generate, aiConfigured, aiModel, aiProvider, AI_KINDS } from './src/ai/claude.js';
 
@@ -56,6 +57,10 @@ async function route(req, res) {
       const { meta } = loadDataset(t);
       return { key: t, product: meta.product, syncedAt: meta.syncedAt };
     }));
+  }
+  if (req.method === 'GET' && parts[1] === 'sobrus') {
+    const all = loadAll();
+    return send(res, 200, sobrusOverview(all, crossTeamLoad(all)));
   }
   if (req.method === 'GET' && parts[1] === 'summary') return send(res, 200, summary(loadDataset(team)));
   if (req.method === 'GET' && parts[1] === 'analysis' && parts[2]) return send(res, 200, runAnalysis(team, parts[2], asOf).analysis);

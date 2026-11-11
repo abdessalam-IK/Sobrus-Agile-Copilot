@@ -7,21 +7,25 @@ const r1 = (x) => (x == null ? '—' : String(Math.round(x * 10) / 10).replace('
 const r2 = (x) => (x == null ? '—' : String(Math.round(x * 100) / 100).replace('.', ','));
 const dm = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '');
 
-const state = { teams: [], team: null, summary: null, config: null, sprintId: null, asOf: null, data: null, tab: 'overview', ai: {} };
+const SOBRUS = '__sobrus';
+const state = { mode: 'sobrus', sobrus: null, teams: [], team: null, summary: null, config: null, sprintId: null, asOf: null, data: null, tab: 'overview', ai: {} };
 
 // Un seul menu, dans l'ordre où l'on en a besoin au fil du sprint.
+// Menu d'un projet : l'essentiel d'abord ; les analyses détaillées sont rangées à part.
+const ESSENTIAL = 'L’essentiel';
+const DETAILS = 'Analyses détaillées';
 const PAGES = [
-  { id: 'overview', group: 'Pendant le sprint', label: 'Vue d’ensemble', sub: 'L’essentiel en 30 secondes', intro: 'Ce que le Copilot retient du sprint : les signaux qui méritent votre attention, ce qu’ils racontent ensemble et les pistes d’action. Commencez toujours par ici.' },
-  { id: 'daily', group: 'Pendant le sprint', label: 'Daily', sub: 'Préparer le point du jour', intro: 'À ouvrir 5 minutes avant le Daily : ce qui a bougé depuis hier, ce qui est bloqué ou immobile, et les questions à poser à l’équipe.' },
-  { id: 'sprint', group: 'Pendant le sprint', label: 'Sprint', sub: 'Board, burndown, charge', intro: 'Les données du sprint telles que le Copilot les lit dans Linear : indicateurs, board, burndown et charge par personne.' },
-  { id: 'kpis', group: 'Pendant le sprint', label: 'Indicateurs', sub: 'Imprévu, Planning, flux, blocages', intro: 'Les indicateurs de flux du sprint : d’où vient le travail imprévu, ce que vaut le Planning, où les tickets attendent entre le développement et la PROD, ce qui bloque, et les tickets en cours depuis trop longtemps.' },
-  { id: 'signals', group: 'Pendant le sprint', label: 'Signaux', sub: 'Le détail, avec les preuves', intro: 'Chaque signal détecté, avec ses preuves (tickets, dates, chiffres) et la question à poser à l’équipe.' },
-  { id: 'review', group: 'Fin de sprint', label: 'Sprint Review', sub: 'Livré, non livré, messages', intro: 'L’objectif du sprint, ce qui est livré, ce qui ne l’est pas et pourquoi, et les messages clés à partager.' },
-  { id: 'retro', group: 'Fin de sprint', label: 'Rétrospective', sub: 'Préparer l’atelier', intro: 'Les données à montrer, la chronologie des événements, les questions à poser et le suivi des actions précédentes.' },
-  { id: 'planning', group: 'Fin de sprint', label: 'Prochain Planning', sub: 'Capacité et points à challenger', intro: 'La capacité du prochain sprint (congés et jours fériés inclus), une fourchette d’engagement réaliste et les tickets à challenger.' },
-  { id: 'objectives', group: 'Prendre du recul', label: 'Objectifs', sub: 'Effort, projets, objectif de sprint', intro: 'Le lien entre le travail de l’équipe et les objectifs de Sobrus : à quoi sert le travail livré, où en sont les projets Linear et quand ils devraient se terminer, et si chaque sprint a un objectif écrit et atteint.' },
-  { id: 'trends', group: 'Prendre du recul', label: 'Tendances', sub: 'Ce qui change de sprint en sprint', intro: 'La comparaison des sprints : qu’est-ce qui est en train de changer dans votre manière de travailler ?' },
-  { id: 'report', group: 'Prendre du recul', label: 'Rapport', sub: 'Exporter en Markdown', intro: 'Le rapport complet du sprint, à copier ou à télécharger.' },
+  { id: 'overview', group: ESSENTIAL, label: 'Résumé', sub: 'Le sprint en 30 secondes', intro: 'Où en est le sprint, les points qui demandent votre attention et les actions proposées.' },
+  { id: 'daily', group: ESSENTIAL, label: 'Daily', sub: 'Préparer le point du jour', intro: 'À ouvrir 5 minutes avant le Daily : ce qui a bougé depuis hier, ce qui est bloqué ou immobile, et les questions à poser à l’équipe.' },
+  { id: 'review', group: ESSENTIAL, label: 'Sprint Review', sub: 'Livré, non livré, messages', intro: 'L’objectif du sprint, ce qui est livré, ce qui ne l’est pas et pourquoi, et les messages clés à partager.' },
+  { id: 'retro', group: ESSENTIAL, label: 'Rétrospective', sub: 'Préparer l’atelier', intro: 'Les données à montrer, la chronologie des événements, les questions à poser et le suivi des actions précédentes.' },
+  { id: 'planning', group: ESSENTIAL, label: 'Prochain Planning', sub: 'Capacité et points à challenger', intro: 'La capacité du prochain sprint (congés et jours fériés inclus), une fourchette d’engagement réaliste et les tickets à challenger.' },
+  { id: 'sprint', group: DETAILS, label: 'Sprint', intro: 'Les données du sprint telles que le Copilot les lit dans Linear : indicateurs, board, fonctionnalités, burndown et charge par développeur.' },
+  { id: 'kpis', group: DETAILS, label: 'Indicateurs', intro: 'Les indicateurs de flux du sprint : d’où vient le travail imprévu, ce que vaut le Planning, où les tickets attendent entre le développement et la PROD, ce qui bloque, et les tickets en cours depuis trop longtemps.' },
+  { id: 'objectives', group: DETAILS, label: 'Objectifs', intro: 'Le lien entre le travail de l’équipe et les objectifs de Sobrus : objectif de sprint, part du travail rattachée à un projet, et avancement des projets Linear.' },
+  { id: 'signals', group: DETAILS, label: 'Signaux', intro: 'Chaque signal détecté, avec ses preuves (tickets, dates, chiffres) et la question à poser à l’équipe.' },
+  { id: 'trends', group: DETAILS, label: 'Tendances', intro: 'La comparaison des sprints : qu’est-ce qui est en train de changer dans votre manière de travailler ?' },
+  { id: 'report', group: DETAILS, label: 'Rapport', intro: 'Le rapport complet du sprint, à copier ou à télécharger.' },
 ];
 
 /** Pages conseillées selon le moment du sprint. */
@@ -56,30 +60,59 @@ async function init() {
   badge.classList.toggle('on', state.config.ai.configured);
   $('#sync-btn').addEventListener('click', syncNow);
 
-  // Projet : celui choisi la dernière fois (mémorisé dans ce navigateur), sinon le premier
+  // Vue Sobrus par défaut ; sinon le dernier projet ouvert dans ce navigateur
   let saved = null;
   try { saved = localStorage.getItem('copilot.team'); } catch { /* stockage indisponible */ }
-  state.team = state.teams.some((t) => t.key === saved) ? saved : state.teams[0]?.key;
   const teamSel = $('#team-select');
-  teamSel.innerHTML = state.teams.map((t) => `<option value="${t.key}">${esc(t.product)}</option>`).join('');
-  teamSel.value = state.team;
-  teamSel.addEventListener('change', async () => {
-    state.team = teamSel.value;
-    try { localStorage.setItem('copilot.team', state.team); } catch { /* stockage indisponible */ }
-    state.ai = {};
-    await loadTeam();
-  });
+  teamSel.innerHTML = `<option value="${SOBRUS}">Vue Sobrus — tous les projets</option>` + state.teams.map((t) => `<option value="${t.key}">${esc(t.product)}</option>`).join('');
+  teamSel.value = saved && (saved === SOBRUS || state.teams.some((t) => t.key === saved)) ? saved : SOBRUS;
+  teamSel.addEventListener('change', () => openView(teamSel.value));
   $('#sprint-select').addEventListener('change', (e) => { state.sprintId = e.target.value; state.asOf = null; load(); });
-  await loadTeam();
+  await openView(teamSel.value);
+}
+
+/** Ouvre la Vue Sobrus ou un projet. */
+async function openView(value) {
+  $('#team-select').value = value;
+  try { localStorage.setItem('copilot.team', value); } catch { /* stockage indisponible */ }
+  state.ai = {};
+  if (value === SOBRUS) return loadSobrus();
+  state.team = value;
+  state.tab = 'overview';
+  return loadTeam();
+}
+
+/** Affiche ou masque ce qui n'a de sens que dans un projet (sprint, bandeau, menu, précisions). */
+function setMode(mode) {
+  state.mode = mode;
+  const project = mode === 'team';
+  $('#sprint-select').closest('label').hidden = !project;
+  $('#hero').hidden = !project;
+  $('#tabs').hidden = !project;
+  if (!project) $('#precisions').innerHTML = '';
+}
+
+async function loadSobrus() {
+  setMode('sobrus');
+  $('#brand-sub').textContent = 'Vue Sobrus — tous les projets';
+  $('#data-note').textContent = '';
+  const oldest = state.teams.map((t) => t.syncedAt).sort()[0];
+  renderSync({ source: 'linear', syncedAt: oldest });
+  $('#view').innerHTML = '<p class="muted">Chargement de la vue Sobrus…</p>';
+  state.sobrus = await api('/api/sobrus');
+  $('#view').innerHTML = viewSobrus(state.sobrus);
+  $('#view').querySelectorAll('[data-open-team]').forEach((b) => b.addEventListener('click', () => openView(b.dataset.openTeam)));
+  window.scrollTo({ top: 0 });
 }
 
 /** Charge le résumé du projet choisi et positionne le sprint en cours. */
 async function loadTeam(keepSprint = false) {
+  setMode('team');
   state.summary = await api(`/api/summary?${teamQuery()}`);
   const { meta, sprints } = state.summary;
   $('#brand-sub').textContent = `Projet : ${meta.product}`;
   $('#data-note').textContent = meta.demo ? ' · Données de démonstration fictives.' : '';
-  renderSync();
+  renderSync(meta);
   const sel = $('#sprint-select');
   sel.innerHTML = sprintOptions(sprints);
   const active = sprints.find((s) => s.status === 'active') || sprints.at(-1);
@@ -89,9 +122,65 @@ async function loadTeam(keepSprint = false) {
   await load();
 }
 
+// ---------------------------------------------------------------------------
+// Vue Sobrus : tous les projets sur un seul écran
+// ---------------------------------------------------------------------------
+const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+
+function viewSobrus(v) {
+  const pill = (st) => `<span class="status-pill ${st.id}">${esc(st.label)}</span>`;
+  const n = v.cards.length;
+  const parts = [
+    v.counts.ok && `${v.counts.ok} dans les temps`,
+    v.counts.tension && `${v.counts.tension} sous tension`,
+    v.counts.risk && `${v.counts.risk} en difficulté`,
+  ].filter(Boolean).join(', ');
+  const first = v.cards[0];
+
+  const cards = v.cards.map((c) => `
+    <div class="card project-card ${c.status.id}">
+      <div class="pc-head"><h3>${esc(c.product)}</h3>${pill(c.status)}</div>
+      <div class="small muted">${esc(c.sprint)} · ${c.closed ? 'sprint terminé' : `jour ${c.day}/${c.totalDays}`}</div>
+      <div class="pc-progress">
+        <div class="bar big" title="Repère : part du sprint écoulée"><span style="width:${(c.done / Math.max(1, c.scope)) * 100}%"></span><i class="marker" style="left:${c.expected * 100}%"></i></div>
+        <div class="small"><b>${c.done}/${c.scope} tickets livrés</b> <span class="muted">· ${pct(c.expected)} du sprint écoulé</span></div>
+      </div>
+      <p class="pc-main"><b>Point principal :</b> ${esc(c.mainPoint)}</p>
+      <div class="pc-facts">
+        <span title="Tickets entrés dans le sprint après le Planning">Imprévu <b>${pct(c.unplannedShare)}</b></span>
+        <span title="Part des tickets livrés rattachés à un projet Linear">Rattaché à un projet <b>${c.linkedShare == null ? '—' : pct(c.linkedShare)}</b></span>
+        <span title="Description du cycle Linear">Objectif de sprint <b>${c.goalSet ? 'écrit' : 'non écrit'}</b></span>
+      </div>
+      <button class="btn ghost" data-open-team="${esc(c.team)}">Ouvrir le projet →</button>
+    </div>`).join('');
+
+  const decisions = v.decisions.map((d) => `<li>
+      <div class="d-problem"><b>${esc(d.topic)}</b><ul>${d.projects.map((p) => `<li>${p.team ? `<span class="tag">${esc(p.product)}</span> ` : ''}${esc(p.problem)}</li>`).join('')}</ul></div>
+      <div class="d-action">→ ${esc(d.action)} <span class="muted small">— ${esc(d.owner)}</span></div>
+    </li>`).join('');
+
+  const changes = v.cards.flatMap((c) => [
+    ...c.change.map((x) => `<li><span class="tag">${esc(c.product)}</span> ${esc(x)}</li>`),
+    ...c.progress.slice(0, 1).map((x) => `<li><span class="tag green">${esc(c.product)}</span> ${esc(x)}</li>`),
+  ]);
+
+  return `
+    <div class="sobrus-head">
+      <h1>${esc(first?.sprint || 'Sprint en cours')}${first && !first.closed ? ` · jour ${first.day}/${first.totalDays}` : ''}</h1>
+      <p class="sobrus-summary">${plural(n, 'projet suivi', 'projets suivis')} : ${parts}. <b>${plural(v.decisions.length, 'décision', 'décisions')} à prendre cette semaine.</b></p>
+    </div>
+
+    <div class="grid cols-2">${cards}</div>
+    <p class="small muted">Statut = avancement du sprint et gravité des points d’attention. Le repère sur la barre indique où l’équipe devrait en être à ce jour.</p>
+
+    <div class="section-title"><h2>À décider cette semaine</h2><span class="muted small">Les points les plus importants, tous projets confondus</span></div>
+    ${decisions ? `<div class="card"><ol class="decisions">${decisions}</ol></div>` : '<div class="card"><p class="muted">Aucune décision urgente.</p></div>'}
+
+    ${changes.length ? `<div class="section-title"><h2>Ce qui change d’un sprint à l’autre</h2></div><div class="card"><ul class="changes">${changes.join('')}</ul></div>` : ''}`;
+}
+
 /** Date de la dernière synchronisation Linear, en évidence si elle ne date pas d'aujourd'hui. */
-function renderSync() {
-  const { meta } = state.summary;
+function renderSync(meta) {
   $('#sync').hidden = meta.source !== 'linear';
   if (meta.source !== 'linear') return;
   const at = new Date(meta.syncedAt);
@@ -110,7 +199,8 @@ async function syncNow() {
     await api('/api/sync', { method: 'POST' });
     state.teams = await api('/api/teams');
     state.ai = {};
-    await loadTeam(true);
+    if (state.mode === 'sobrus') await loadSobrus();
+    else await loadTeam(true);
   } catch (err) {
     alert(`Synchronisation impossible : ${err.message}`);
   } finally {
@@ -153,7 +243,7 @@ function render() {
 function renderTabs() {
   const rec = recommendedPages(state.data.observe);
   const groups = [...new Set(PAGES.map((p) => p.group))];
-  $('#tabs').innerHTML = groups.map((g) => `<div class="tab-group"><div class="tab-group-label">${g}</div><div class="tab-group-items">${PAGES.filter((p) => p.group === g).map((p) => `<button role="tab" aria-selected="${p.id === state.tab}" class="${p.id === state.tab ? 'active' : ''}" data-tab="${p.id}">${p.label}${rec.includes(p.id) ? '<span class="rec" title="Conseillé à ce moment du sprint">conseillé</span>' : ''}<span class="sub">${p.sub}</span></button>`).join('')}</div></div>`).join('');
+  $('#tabs').innerHTML = groups.map((g) => `<div class="tab-group${g === DETAILS ? ' secondary' : ''}"><div class="tab-group-label">${g}</div><div class="tab-group-items">${PAGES.filter((p) => p.group === g).map((p) => `<button role="tab" aria-selected="${p.id === state.tab}" class="${p.id === state.tab ? 'active' : ''}" data-tab="${p.id}">${p.label}${rec.includes(p.id) ? '<span class="rec" title="Conseillé à ce moment du sprint">conseillé</span>' : ''}${p.sub ? `<span class="sub">${p.sub}</span>` : ''}</button>`).join('')}</div></div>`).join('');
   $('#tabs').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
     state.tab = b.dataset.tab;
     render();
@@ -178,10 +268,17 @@ function renderHero() {
     <div class="gauge">${gauge(t.health, t.healthLabel)}${t.healthBreakdown ? `<div class="gauge-parts"><span title="Travail terminé par rapport à l’attendu à ce jour du sprint">Avancement ${t.healthBreakdown.progress.score}</span> · <span title="Points d’attention, un par thème">Signaux ${t.healthBreakdown.signals.score}</span></div><a class="small" href="#precision-sante">Comment est-elle calculée ?</a>` : ''}</div>
     <div>
       <div class="goal-line">🎯 ${esc(o.sprint.goal)} · ${o.closed ? 'Sprint terminé' : `Jour ${o.dayIndex}/${o.totalDays} (au ${dm(o.asOf)})`}</div>
-      <div class="headline">${headlineHtml(t)}</div>
-      <div class="facts">${t.facts.map((f) => `<span class="fact">${esc(f)}</span>`).join('')}</div>
+      <div class="headline">${state.tab === 'overview' ? esc(verdict(t)) : headlineHtml(t)}</div>
+      <div class="facts">${t.facts.slice(0, 3).map((f) => `<span class="fact">${esc(f)}</span>`).join('')}</div>
     </div>`;
   renderPrecisions(t);
+}
+
+/** Verdict d'une ligne pour le Résumé (les points eux-mêmes sont détaillés juste en dessous). */
+function verdict(t) {
+  const n = t.headlineParts?.items.length || 0;
+  const state_ = t.health >= 75 ? 'Sprint dans les temps' : t.health >= 50 ? 'Sprint sous tension' : 'Sprint en difficulté';
+  return n ? `${state_} : ${n} point${n > 1 ? 's demandent' : ' demande'} votre attention.` : `${state_} : rien de particulier à signaler.`;
 }
 
 const star = (k) => `<a class="star" href="#precision-${k}" title="Voir le détail en bas de page">★${k}</a>`;
@@ -372,7 +469,6 @@ function viewKpis() {
 // ---------------------------------------------------------------------------
 // Page « Objectifs »
 // ---------------------------------------------------------------------------
-const CATEGORY_COLOR = { 'Projets': 'var(--brand)', 'Bugs & support': 'var(--attention)', 'Technique': 'var(--brand-2)', 'Hors projet (non classé)': 'var(--border)' };
 
 function viewObjectives() {
   const o = state.data.objectives;
@@ -396,11 +492,12 @@ function viewObjectives() {
         </tbody></table>
         <p class="small muted" style="margin-top:8px">Éléments clés = tickets portant le label « commitment prod ».</p>
       </div>
-      <div class="card"><h3>À quoi sert le travail livré ?</h3>
-        <p class="small muted">Part des tickets terminés par catégorie, sprint par sprint. « Projets » = ticket rattaché à un projet Linear.</p>
-        ${alloc.map((a) => `<div class="bar-row"><span>${esc(a.sprint)}</span><div class="bar">${a.byCategory.map((c) => `<span title="${esc(c.category)} : ${c.count} ticket${c.count > 1 ? 's' : ''} (${pct(c.share)})" style="width:${c.share * 100}%;background:${CATEGORY_COLOR[c.category]}"></span>`).join('')}</div><span class="small muted">${a.done} livré${a.done > 1 ? 's' : ''} · ${pct(a.linkedShare)} projets</span></div>`).join('')}
-        <div class="chips small" style="margin-top:8px">${Object.entries(CATEGORY_COLOR).map(([k, c]) => `<span class="tag"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:4px"></span>${esc(k)}</span>`).join('')}</div>
-        ${last?.byProject.length ? `<h4 style="margin-top:12px">Projets servis ce sprint</h4>${list(last.byProject.map((p) => `${esc(p.project)} <span class="muted small">— ${p.count} ticket${p.count > 1 ? 's' : ''} livré${p.count > 1 ? 's' : ''}</span>`))}` : ''}
+      <div class="card"><h3>Le travail livré sert-il un projet ?</h3>
+        ${last?.done ? `<p class="big-number">${pct(last.linkedShare)}</p><p>des tickets livrés ce sprint sont rattachés à un projet Linear${last.linkedShare < 1 ? ` ; les ${last.done - Math.round(last.linkedShare * last.done)} autres ne le sont pas, on ne peut donc pas dire à quel objectif ils servent` : ''}.</p>` : '<p class="muted">Aucun ticket livré pour l’instant.</p>'}
+        ${last?.byProject.length ? `<h4>Projets servis ce sprint</h4>${list(last.byProject.map((p) => `${esc(p.project)} <span class="muted small">— ${p.count} ticket${p.count > 1 ? 's' : ''} livré${p.count > 1 ? 's' : ''}</span>`))}` : ''}
+        <table style="margin-top:8px"><thead><tr><th>Sprint</th><th class="num">Tickets livrés</th><th class="num">Rattachés à un projet</th></tr></thead><tbody>
+          ${[...alloc].reverse().map((a) => `<tr><td>${esc(a.sprint)}</td><td class="num">${a.done}</td><td class="num">${pct(a.linkedShare)}</td></tr>`).join('')}
+        </tbody></table>
       </div>
     </div>
 
@@ -530,19 +627,22 @@ function viewSignals() {
 // ---------------------------------------------------------------------------
 function viewOverview() {
   const { think: t } = state.data;
+  const items = t.headlineParts?.items || [];
+  const points = items.map((x, i) => {
+    const insight = t.insights.find((n) => n.theme === x.theme);
+    const sig = insight?.signals[0];
+    return `<div class="card point"><div class="point-num">${i + 1}</div><div>
+      <h3>${esc(insight?.headline || x.text)}</h3>
+      <p class="muted">${esc(sig?.narrative || '')}</p>
+      <div class="question">${esc(sig?.question || '')}</div>
+      <a class="small" href="#precision-${i + 1}">Voir les tickets concernés</a></div></div>`;
+  }).join('');
+  const actions = t.recommendations.slice(0, 3);
   return `
-    ${t.crossReadings.length ? `<div class="card cross"><h2>Ce que les signaux racontent ensemble</h2><ul>${t.crossReadings.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
-    <div class="section-title"><h2>Insights par thème</h2><span class="muted small">${t.insights.length} thème${t.insights.length > 1 ? 's' : ''}</span></div>
-    ${t.insights.length ? `<div class="grid cols-2">${t.insights.map((i) => `
-      <div class="card insight ${i.level.id}">
-        <div class="signal-head"><h3>${i.icon} ${esc(i.label)}</h3><span class="level ${i.level.id}">${i.level.label}</span></div>
-        <p><b>${esc(i.headline)}.</b> ${esc(i.narrative)}</p>
-        ${i.questions.slice(0, 2).map((q) => `<div class="question">${esc(q)}</div>`).join('')}
-      </div>`).join('')}</div>` : '<p class="empty">Aucun insight : rien ne nécessite d’attention particulière.</p>'}
-    <div class="section-title"><h2>Recommandations</h2><span class="muted small">Propositions à discuter — l’équipe décide</span></div>
-    <div class="card"><table><thead><tr><th>Proposition</th><th>Pour qui</th><th>Parce que</th></tr></thead><tbody>
-      ${t.recommendations.map((r) => `<tr><td>${esc(r.text)}</td><td class="small">${esc(r.owner)}</td><td class="small muted">${esc(r.because)}</td></tr>`).join('') || '<tr><td colspan="3" class="empty">—</td></tr>'}
-    </tbody></table></div>`;
+    ${points ? `<div class="section-title"><h2>Ce qui demande votre attention</h2></div><div class="grid">${points}</div>` : '<div class="card"><h2>Rien de particulier à signaler</h2><p class="muted">Le sprint se déroule sans signal notable.</p></div>'}
+    ${actions.length ? `<div class="section-title"><h2>Actions proposées</h2><span class="muted small">À discuter avec l’équipe, qui décide</span></div>
+      <div class="card"><ol class="actions">${actions.map((r) => `<li><b>${esc(r.text)}</b> <span class="muted small">— ${esc(r.owner)}</span></li>`).join('')}</ol></div>` : ''}
+    ${t.crossReadings.length ? `<p class="muted small" style="margin-top:12px"><b>Lecture d’ensemble :</b> ${esc(t.crossReadings[0])}</p>` : ''}`;
 }
 
 // ---------------------------------------------------------------------------

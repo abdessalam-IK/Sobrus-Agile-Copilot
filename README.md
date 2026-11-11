@@ -74,19 +74,22 @@ Le détail du calcul est affiché sous la jauge et dans les Précisions.
 
 ## Interface
 
-Un seul menu, dans l'ordre où l'on en a besoin au fil du sprint. Le badge **« conseillé »** indique la page utile au moment présent.
+Trois niveaux, du plus synthétique au plus détaillé.
 
-| Groupe | Page | À quoi elle sert |
-|---|---|---|
-| Pendant le sprint | **Vue d'ensemble** | L'essentiel en 30 secondes : signaux prioritaires, lecture transverse, recommandations |
-| | **Daily** | Ce qui a bougé, ce qui bloque, les questions à poser |
-| | **Sprint** | Indicateurs, board, fonctionnalités, burndown, charge par développeur |
-| | **Indicateurs** | Travail imprévu et son origine, précision du Planning, cycle time par étape jusqu'en PROD, blocages, âge du travail en cours |
-| Prendre du recul | **Objectifs** | Objectif de sprint écrit et atteint, répartition de l'effort (projets, bugs & support, technique, hors projet), projets Linear avec fin prévisible et alertes |
-| | **Signaux** | Chaque signal avec ses preuves et la question à poser |
-| Fin de sprint | **Sprint Review** · **Rétrospective** · **Prochain Planning** | Préparation de chaque cérémonie |
-| Prendre du recul | **Tendances** | Ce qui change de sprint en sprint |
-| | **Rapport** | Export Markdown |
+**1. Vue Sobrus** (page d'accueil, sélecteur « Vue ») : tous les projets sur un seul écran, pour répondre en quelques secondes à trois questions.
+- *Nos projets avancent-ils ?* Une carte par projet : statut (dans les temps / sous tension / en difficulté), tickets livrés comparés à l'attendu, point principal, trois repères (imprévu, travail rattaché à un projet, objectif de sprint écrit).
+- *Qu'est-ce qui demande une décision cette semaine ?* Au plus 5 décisions, tous projets confondus. Un même problème dans plusieurs projets ne compte qu'une fois. Chacune indique l'action proposée et qui la porte.
+- *Qu'est-ce qui change ?* Les évolutions de fond de chaque projet, sprint après sprint.
+
+**2. Un projet, l'essentiel** : le badge « conseillé » indique la page utile au moment présent.
+
+| Page | À quoi elle sert |
+|---|---|
+| **Résumé** | Le verdict du sprint, les points qui demandent votre attention et 3 actions proposées |
+| **Daily** | Ce qui a bougé, ce qui bloque, les questions à poser |
+| **Sprint Review** · **Rétrospective** · **Prochain Planning** | Préparation de chaque cérémonie |
+
+**3. Un projet, analyses détaillées** (ligne secondaire du menu) : **Sprint** (board, fonctionnalités, burndown, charge), **Indicateurs** (imprévu, Planning, flux jusqu'en PROD, blocages, âge du travail en cours), **Objectifs** (objectif de sprint, travail rattaché aux projets, projets Linear), **Signaux**, **Tendances**, **Rapport**.
 
 - **Étoiles ★** dans le bandeau : chaque point renvoie aux **Précisions** en bas de page (tickets concernés, preuves, question à poser).
 - **Rédaction avec Claude** : la note du Daily, et le bilan de fin de sprint (Review, Rétro et Planning en un seul document). Elle passe par Claude Code et votre siège Claude, sans clé API.
