@@ -5,6 +5,7 @@
 
 import { sum, mean, median, quantile, clamp01, round, pct, seededRandom } from '../lib/stats.js';
 import { ACTIVE_STATUSES, STATUS_LABELS } from './observe.js';
+import { agingWip, unplanned, originOf } from './flow.js';
 
 export const THEMES = {
   flow: { label: 'Flux de travail', icon: '⇄' },
@@ -35,24 +36,24 @@ function signal(s) {
 // Détecteurs
 // ---------------------------------------------------------------------------
 
-/** Tickets en cours ou en revue qui n'ont pas bougé depuis plusieurs jours. */
-function stuckIssues(snap, ctx) {
-  const typicalCycle = median(ctx.previous.flatMap((p) => p.issues.map((i) => i.cycleTime).filter(Boolean))) || 4;
-  const threshold = Math.max(3, Math.round(typicalCycle * 0.75));
-  const stuck = snap.issues.filter((i) => ACTIVE_STATUSES.includes(i.status) && i.ageInStatus >= threshold && !i.blockedNow);
-  const reviewStuck = snap.issues.filter((i) => i.status === 'review' && i.ageInStatus >= 2 && !i.blockedNow && !stuck.includes(i));
-  const all = [...stuck, ...reviewStuck];
-  if (!all.length) return [];
-  const maxAge = Math.max(...all.map((i) => i.ageInStatus));
+/**
+ * Âge du travail en cours : un ticket en cours depuis plus longtemps que 85 % des tickets habituels
+ * de l'équipe a de fortes chances de déborder. Alerte plus fiable qu'un seuil fixe de jours.
+ */
+function agingWipSignal(snap, ctx, names) {
+  if (snap.closed) return [];
+  const { thresholds: th, items } = agingWip(snap, ctx.previous, ctx.dataset.meta?.holidays || []);
+  const risky = items.filter((i) => i.level === 'risk');
+  if (!risky.length) return [];
   return [signal({
-    type: 'stuck_issues', theme: 'flow',
-    severity: (0.3 + 0.1 * all.length + 0.04 * maxAge) * (snap.closed ? 0.7 : 1),
-    title: `${plural(all.length, 'ticket immobile', 'tickets immobiles')} (jusqu’à ${maxAge} jours sans mouvement)`,
-    narrative: `${plural(all.length, 'ticket n’a', 'tickets n’ont')} pas changé de statut depuis plusieurs jours sans être déclaré bloqué : c’est souvent un blocage non dit.`,
-    evidence: all.map((i) => `${i.key} — ${STATUS_LABELS[i.status]} depuis ${i.ageInStatus} j (${i.assignee})`),
-    issues: keys(all),
-    question: 'Qu’est-ce qui empêche réellement ces tickets d’avancer ? Qui peut aider aujourd’hui ?',
-    recommendation: { text: 'Traiter les tickets immobiles en début de Daily (« walk the board » de droite à gauche).', owner: 'Équipe' },
+    type: 'aging_wip', theme: 'flow',
+    severity: 0.3 + 0.12 * risky.length + 0.03 * Math.max(...risky.map((i) => i.age - th.p85)),
+    title: `${plural(risky.length, 'ticket en cours depuis', 'tickets en cours depuis')} plus de ${th.p85} jours, plus longtemps que 85 % des tickets habituels`,
+    narrative: `D’habitude, la moitié des tickets se terminent en ${th.p50} jour${th.p50 > 1 ? 's' : ''} ouvré${th.p50 > 1 ? 's' : ''} et 85 % en ${th.p85} jours${th.fallback ? ' (seuils par défaut : pas encore assez d’historique)' : ` (calculé sur ${th.basedOn} tickets terminés)`}. Au-delà, un ticket risque fort de déborder du sprint.`,
+    evidence: risky.map((i) => `${i.key} — en cours depuis ${i.age} j${i.blocked ? ' (bloqué)' : ''} (${names(i.assignee)}) — ${i.title}`),
+    issues: risky.map((i) => i.key),
+    question: 'Qu’est-ce qui empêche ces tickets de se terminer ? Faut-il les découper, aider la personne, ou lever un blocage non dit ?',
+    recommendation: { text: 'Traiter les tickets les plus âgés en début de Daily, avant d’en démarrer de nouveaux.', owner: 'Équipe' },
   })];
 }
 
@@ -180,13 +181,13 @@ function scopeChange(snap) {
   const m = snap.metrics;
   if (m.scopeChangeRatio < 0.08 && !m.removedPoints) return [];
   const added = snap.issues.filter((i) => i.addedMidSprint);
-  const urgent = added.filter((i) => i.type === 'bug' || i.comments.some((c) => /urgent/i.test(c.text)));
+  const origins = unplanned(snap).byOrigin;
   return [signal({
     type: 'scope_change', theme: 'scope',
     severity: 0.2 + m.scopeChangeRatio * 2,
     title: `${m.addedPoints} points ajoutés après le Planning, en plus des ${m.committedPoints} engagés (+${pct(m.scopeChangeRatio)})`,
-    narrative: `${plural(added.length, 'élément a été ajouté', 'éléments ont été ajoutés')} après le Planning${urgent.length ? `, dont ${urgent.length} présenté${urgent.length > 1 ? 's' : ''} comme urgent${urgent.length > 1 ? 's' : ''}` : ''}.`,
-    evidence: added.map((i) => `${i.key} (+${i.points} pts, ajouté le ${i.addedDate}) — ${i.title}`),
+    narrative: `${plural(added.length, 'ticket est entré', 'tickets sont entrés')} dans le sprint après le Planning, soit ${pct(m.unplannedRatio)} des tickets du sprint. Origine : ${origins.map((o) => `${o.origin.toLowerCase()} (${o.count})`).join(', ')}.`,
+    evidence: added.map((i) => `${i.key} (${i.points != null ? `+${i.points} pts` : 'non estimé'}, ajouté le ${i.addedDate}, ${originOf(i).toLowerCase()}) — ${i.title}`),
     issues: keys(added),
     question: 'Ces ajouts étaient-ils réellement urgents ? Qu’avons-nous retiré en échange ?',
     recommendation: { text: 'Prévoir un buffer explicite pour les urgences et rendre visible le « troc » (un ajout = un retrait).', owner: 'Product Owner' },
@@ -230,23 +231,6 @@ function velocityTrend(snap, ctx) {
   })];
 }
 
-/** Sur-engagement : l'équipe s'engage au-delà de ce qu'elle livre habituellement. */
-function overcommitment(snap, ctx) {
-  const ref = ctx.previous.slice(-3).filter((p) => p.metrics.velocityPerPersonDay);
-  if (ref.length < 2) return [];
-  const expected = mean(ref.map((p) => p.metrics.velocityPerPersonDay)) * snap.metrics.personDays;
-  const ratio = snap.metrics.committedPoints / expected;
-  if (ratio < 1.2) return [];
-  return [signal({
-    type: 'overcommitment', theme: 'predictability',
-    severity: 0.2 + (ratio - 1) * 0.8,
-    title: `Engagement ${pct(ratio - 1)} au-dessus de la capacité observée`,
-    narrative: `${snap.metrics.committedPoints} points engagés pour une capacité estimée à ~${Math.round(expected)} points (vélocité récente × jours disponibles).`,
-    evidence: [`Capacité : ${snap.metrics.personDays} jours-personne`, `Vélocité récente : ${round(mean(ref.map((p) => p.metrics.velocityPerPersonDay)), 2)} pt/j-p`],
-    question: 'Qu’est-ce qui nous a poussés à nous engager au-delà de notre capacité ?',
-    recommendation: { text: 'Au Planning, afficher la capacité calculée avant de sélectionner les tickets.', owner: 'Scrum Master' },
-  })];
-}
 
 /** Prévision de fin de sprint par simulation Monte Carlo (sprint en cours). */
 function forecast(snap, ctx) {
@@ -526,9 +510,44 @@ function stakeholderFeedback(snap) {
   })];
 }
 
+/**
+ * Précision du Planning (sprint terminé) : les tickets planifiés ont-ils été livrés, et le Planning
+ * représente-t-il vraiment le travail du sprint ? Remplace le « sur-engagement », qui n'a pas de sens
+ * quand l'essentiel du travail entre en cours de sprint.
+ */
+function planningAccuracySignal(snap) {
+  const m = snap.metrics;
+  if (!snap.closed || m.planningAccuracy == null) return [];
+  const out = [];
+  if (m.planningAccuracy < 0.8) {
+    const missed = snap.issues.filter((i) => i.committed && !i.done);
+    out.push(signal({
+      type: 'planning_accuracy', theme: 'predictability',
+      severity: 0.2 + (0.8 - m.planningAccuracy) * 1.5,
+      title: `${pct(m.planningAccuracy)} des tickets planifiés ont été livrés (${m.plannedDoneCount}/${m.plannedCount})`,
+      narrative: 'Une partie de ce qui avait été choisi au Planning n’a pas été terminée pendant le sprint.',
+      evidence: missed.map((i) => `${i.key} — ${STATUS_LABELS[i.status]} — ${i.title}`),
+      issues: keys(missed),
+      question: 'Qu’est-ce qui a pris la place des tickets planifiés : des ajouts, des blocages, ou des tickets plus gros que prévu ?',
+      recommendation: { text: 'Au Planning, ne retenir que ce qui est prêt et laisser une marge visible pour l’imprévu.', owner: 'Product Owner + Équipe' },
+    }));
+  }
+  if (m.plannedShareOfDone != null && m.plannedShareOfDone < 0.5 && m.doneCount >= 5) {
+    out.push(signal({
+      type: 'planning_share', theme: 'predictability',
+      severity: 0.25 + (0.5 - m.plannedShareOfDone),
+      title: `Le Planning ne représente que ${pct(m.plannedShareOfDone)} du travail livré`,
+      narrative: `${m.doneCount - m.plannedDoneCount} des ${m.doneCount} tickets livrés sont entrés en cours de sprint : le Planning décrit mal ce que l’équipe fait réellement.`,
+      question: 'Ce travail imprévu était-il prévisible au moment du Planning ? Faut-il réserver explicitement une part du sprint au support ?',
+      recommendation: { text: 'Mesurer la part d’imprévu habituelle et la réserver dès le Planning, plutôt que de la subir.', owner: 'Product Owner' },
+    }));
+  }
+  return out;
+}
+
 export const DETECTORS = [
-  stuckIssues, blockers, dependencyBottleneck, recurringDependency, wipOverload, scopeChange, requirementChurn,
-  velocityTrend, overcommitment, forecast, carryover, crossTeamOverload, featureGaps, estimationGap, endLoading, quality, concentration,
+  agingWipSignal, blockers, dependencyBottleneck, recurringDependency, wipOverload, scopeChange, requirementChurn,
+  velocityTrend, planningAccuracySignal, forecast, carryover, crossTeamOverload, featureGaps, estimationGap, endLoading, quality, concentration,
   retroFollowThrough, stakeholderFeedback,
 ];
 

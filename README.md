@@ -45,6 +45,17 @@ Le Copilot suit plusieurs équipes Linear, une par projet. Aujourd'hui : **Sobru
 
 Le moteur est déterministe, explicable et testé. Claude n'intervient qu'à la fin, pour rédiger : [src/ai/claude.js](src/ai/claude.js).
 
+### Indicateurs de flux
+
+| Indicateur | Définition |
+|---|---|
+| **Tickets imprévus** | Tickets entrés dans le sprint après le premier jour, regroupés par origine grâce aux labels `Source/Customer care`, `Source/Business developer`, `Source/Tools & Benchmark` (sinon « source non précisée ») |
+| **Précision du Planning** | Part des tickets planifiés (présents le premier jour) qui sont livrés, et part du travail livré qui était planifiée |
+| **Cycle time par étape** | Durée médiane, en jours ouvrés, de chaque étape : attente avant développement, développement, test QA, attente OVH, attente PROD. Calculée sur les tickets terminés des 3 derniers sprints ; une étape vue sur moins de 8 tickets est marquée « données insuffisantes » |
+| **Délai jusqu'en PROD** | Médiane entre le premier passage en « In Progress » et « Vérifié en PROD » |
+| **Blocages** | Jours-ticket passés en « Stuck » ou avec un label d'attente, par cause |
+| **Âge du travail en cours** | Jours depuis le premier « In Progress », comparés au temps habituel de l'équipe : au-delà de ce que dépassent seulement 15 % des tickets, le ticket est signalé |
+
 ### Santé du sprint
 
 **Santé = 60 % avancement + 40 % signaux**, sans double comptage :
@@ -62,6 +73,7 @@ Un seul menu, dans l'ordre où l'on en a besoin au fil du sprint. Le badge **« 
 | Pendant le sprint | **Vue d'ensemble** | L'essentiel en 30 secondes : signaux prioritaires, lecture transverse, recommandations |
 | | **Daily** | Ce qui a bougé, ce qui bloque, les questions à poser |
 | | **Sprint** | Indicateurs, board, fonctionnalités, burndown, charge par développeur |
+| | **Indicateurs** | Travail imprévu et son origine, précision du Planning, cycle time par étape jusqu'en PROD, blocages, âge du travail en cours |
 | | **Signaux** | Chaque signal avec ses preuves et la question à poser |
 | Fin de sprint | **Sprint Review** · **Rétrospective** · **Prochain Planning** | Préparation de chaque cérémonie |
 | Prendre du recul | **Tendances** | Ce qui change de sprint en sprint |

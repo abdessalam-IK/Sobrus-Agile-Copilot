@@ -161,7 +161,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Load bars */
-.bar-row { display: grid; grid-template-columns: 190px 1fr 90px; gap: 8px; align-items: center; margin: 6px 0; font-size: 12.5px; }
+.bar-row { display: grid; grid-template-columns: 190px 1fr 140px; gap: 8px; align-items: center; margin: 6px 0; font-size: 12.5px; }
 .bar { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; display: flex; }
 .bar > span { display: block; height: 100%; }
 

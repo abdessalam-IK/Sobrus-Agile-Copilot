@@ -8,8 +8,9 @@ import { mean, median, slope, round, pct } from '../lib/stats.js';
 export const LEARN_METRICS = [
   { key: 'donePoints', label: 'Points livrés', better: 'up', format: 'num' },
   { key: 'velocityPerPersonDay', label: 'Points par jour-personne', better: 'up', format: 'dec' },
-  { key: 'sayDo', label: 'Fiabilité de l’engagement', better: 'up', format: 'pct' },
-  { key: 'scopeChangeRatio', label: 'Ajouts en cours de sprint', better: 'down', format: 'pct' },
+  { key: 'planningAccuracy', label: 'Tickets planifiés livrés', better: 'up', format: 'pct' },
+  { key: 'plannedShareOfDone', label: 'Part du livré qui était planifiée', better: 'up', format: 'pct' },
+  { key: 'unplannedRatio', label: 'Tickets imprévus (entrés après le Planning)', better: 'down', format: 'pct' },
   { key: 'avgCycleTime', label: 'Cycle time moyen (jours)', better: 'down', format: 'dec' },
   { key: 'blockedIssueDays', label: 'Jours-ticket bloqués', better: 'down', format: 'num' },
   { key: 'avgWip', label: 'Travail en cours moyen', better: 'down', format: 'dec' },
@@ -38,13 +39,13 @@ function shifts(trend) {
   const worse = (k) => trend[k]?.quality === 'worse';
   const better = (k) => trend[k]?.quality === 'better';
   const out = [];
-  if ((worse('velocityPerPersonDay') || worse('sayDo')) && worse('blockedIssueDays')) {
+  if ((worse('velocityPerPersonDay') || worse('planningAccuracy')) && worse('blockedIssueDays')) {
     out.push({ title: 'D’une équipe autonome à une équipe dépendante', text: 'La baisse de livraison suit la hausse du temps bloqué : la capacité de l’équipe est de plus en plus pilotée par des acteurs externes.' });
   }
   if (worse('avgWip') && worse('avgCycleTime')) {
     out.push({ title: 'De « finir » à « commencer »', text: 'Le travail en parallèle augmente et chaque ticket met plus de temps à aboutir : l’équipe absorbe la pression en multipliant les sujets ouverts.' });
   }
-  if (worse('scopeChangeRatio')) {
+  if (worse('unplannedRatio')) {
     out.push({ title: 'Un sprint de moins en moins protégé', text: 'Les ajouts en cours de sprint progressent : le Sprint Backlog devient une liste de départ plutôt qu’un engagement.' });
   }
   if (worse('endLoading')) {
@@ -111,7 +112,7 @@ export function learn(history) {
       patterns.push({ type: 'retro', title: `Action de rétro récurrente : « ${c[0].text} »`, detail: `Décidée ${c.length} fois (${c.map((a) => a.sprint).join(', ')}), jamais réalisée.` });
     }
   }
-  const scopeHits = closed.filter((h) => h.snap.metrics.scopeChangeRatio >= 0.1);
+  const scopeHits = closed.filter((h) => h.snap.metrics.unplannedRatio >= 0.1);
   if (scopeHits.length >= 2) patterns.push({ type: 'scope', title: 'Ajouts en cours de sprint récurrents', detail: `${scopeHits.length} sprints sur ${closed.length} ont reçu plus de 10 % d’ajouts (${scopeHits.map((h) => h.snap.sprint.name).join(', ')}).` });
   // Tickets reportés au moins 2 fois : on garde leur dernière apparition, et on ne retient que ceux toujours ouverts
   const lastSeen = new Map();

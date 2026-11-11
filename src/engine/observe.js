@@ -130,7 +130,14 @@ export function observeSprint(dataset, sprintId, asOf) {
     doneCount: done.length,
     openCount: issues.length - done.length,
     openUnestimated: issues.filter((i) => !i.done && i.points == null).length,
-    sayDo: closed && committedPoints ? doneCommittedPoints / committedPoints : null,
+    // Précision du Planning (en tickets) : planifié = présent au premier jour, retirés compris
+    plannedCount: all.filter((i) => i.committed).length,
+    plannedDoneCount: done.filter((i) => i.committed).length,
+    planningAccuracy: all.some((i) => i.committed) ? done.filter((i) => i.committed).length / all.filter((i) => i.committed).length : null,
+    plannedShareOfDone: done.length ? done.filter((i) => i.committed).length / done.length : null,
+    // Travail imprévu (en tickets) : entré dans le sprint après le premier jour
+    unplannedCount: issues.filter((i) => i.addedMidSprint).length,
+    unplannedRatio: issues.length ? issues.filter((i) => i.addedMidSprint).length / issues.length : 0,
     completionRatio: scopePoints ? donePoints / scopePoints : 0,
     carryoverPoints: sum(issues.filter((i) => i.carriedOver > 0), pts),
     carryoverCount: issues.filter((i) => i.carriedOver > 0).length,

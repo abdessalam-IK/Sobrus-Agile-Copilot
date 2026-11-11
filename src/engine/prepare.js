@@ -90,7 +90,8 @@ function retrospective(snap, thought, history, names) {
     anticipated: !snap.closed,
     dataCards: [
       { label: 'Points livrés', value: `${m.donePoints}/${m.scopePoints}` },
-      { label: 'Fiabilité de l’engagement', value: pct(m.sayDo) },
+      { label: 'Tickets planifiés livrés', value: pct(m.planningAccuracy) },
+      { label: 'Tickets imprévus', value: `${m.unplannedCount} (${pct(m.unplannedRatio)})` },
       { label: 'Cycle time moyen', value: m.avgCycleTime ? `${round(m.avgCycleTime)} j` : '—' },
       { label: 'Jours-ticket bloqués', value: m.blockedIssueDays },
       { label: 'Ajouts en cours de sprint', value: `+${m.addedPoints} pts` },
@@ -176,7 +177,7 @@ function planning(snap, thought, history, dataset, names) {
 // ---------------------------------------------------------------------------
 // Rapport (Markdown) — pour le management ou la Review
 // ---------------------------------------------------------------------------
-export function reportMarkdown({ snap, thought, prepared, learned }) {
+export function reportMarkdown({ snap, thought, prepared, learned, flow }) {
   const m = snap.metrics;
   const L = [];
   L.push(`# Sobrus AI Copilot — ${snap.sprint.name}`);
@@ -188,10 +189,21 @@ export function reportMarkdown({ snap, thought, prepared, learned }) {
   L.push('');
   L.push('## Chiffres clés');
   L.push(`- Tickets terminés : ${m.doneCount}/${m.scopeCount} · points estimés terminés : ${m.donePoints}/${m.scopePoints}${m.openUnestimated ? ` (${m.openUnestimated} ticket${m.openUnestimated > 1 ? 's' : ''} restant${m.openUnestimated > 1 ? 's' : ''} sans estimation)` : ''}`);
-  if (m.sayDo != null) L.push(`- Fiabilité de l’engagement : ${pct(m.sayDo)}`);
+  if (m.planningAccuracy != null) L.push(`- Précision du Planning : ${pct(m.planningAccuracy)} des tickets planifiés livrés · le planifié représente ${pct(m.plannedShareOfDone)} du livré`);
   L.push(`- Objectif : ${m.goalDone}/${m.goalTotal} éléments clés terminés`);
   L.push(`- Ajouts en cours de sprint : +${m.addedPoints} pts · Jours-ticket bloqués : ${m.blockedIssueDays} · Tickets rouverts : ${m.reopenCount}`);
   if (snap.forecast) L.push(`- Probabilité de terminer le périmètre : ${pct(snap.forecast.probability)} (~${Math.round(snap.forecast.expected)} ${snap.forecast.unit} attendus sur ${snap.forecast.remaining} restants)`);
+  L.push('');
+  if (flow) {
+    L.push('');
+    L.push('## Flux');
+    const u = flow.unplanned;
+    if (u.count) L.push(`- Travail imprévu : ${u.count} tickets (${pct(u.ratio)}) — ${u.byOrigin.map((o) => `${o.origin.toLowerCase()} ${o.count}`).join(', ')}`);
+    const stages = flow.cycle.stages.filter((s) => s.median != null);
+    if (stages.length) L.push(`- Cycle time médian par étape (jours ouvrés) : ${stages.map((s) => `${s.label.toLowerCase()} ${s.median}`).join(' → ')}${flow.cycle.bottleneck ? ` · étape la plus longue : ${flow.cycle.bottleneck.label.toLowerCase()}` : ''}`);
+    if (flow.cycle.leadToProd) L.push(`- Délai médian du début du développement à la PROD : ${flow.cycle.leadToProd.median} jours ouvrés (${pct(flow.cycle.leadToProd.share)} des tickets terminés sont en PROD)`);
+    if (flow.blockages.ticketDays) L.push(`- Blocages : ${flow.blockages.ticketDays} jours-ticket — ${flow.blockages.byCause.slice(0, 3).map((c) => `${c.cause} ${c.ticketDays} j`).join(', ')}`);
+  }
   L.push('');
   L.push('## Insights');
   for (const i of thought.insights) {

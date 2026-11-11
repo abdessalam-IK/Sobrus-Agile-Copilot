@@ -135,7 +135,8 @@ export function think(snap, rawSignals) {
     ? [
         `${m.doneCount}/${m.scopeCount} tickets livrés`,
         `${m.donePoints}/${m.scopePoints} points estimés livrés`,
-        `Fiabilité de l’engagement : ${pct(m.sayDo)}`,
+        `Tickets planifiés livrés : ${pct(m.planningAccuracy)}`,
+        `Imprévu : ${pct(m.unplannedRatio)} des tickets`,
         `Objectif : ${m.goalDone}/${m.goalTotal} éléments clés terminés`,
       ]
     : [

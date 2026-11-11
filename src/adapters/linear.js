@@ -162,6 +162,9 @@ export function buildIssue(raw, cycle, nowTs = Date.now()) {
     assignee: raw.assignee?.id || 'non-assigne',
     goal: [...labels, ...parentLabels].some(isGoal),
     labels,
+    // Historique complet des statuts Linear (y compris après la fin du cycle) : sert au cycle time
+    // par étape (Todo for Dev → In Progress → Done à tester → Vérifié QA → OVH → PROD).
+    stages: hist.filter((h) => h.toState).map((h) => ({ at: h.createdAt, date: localDate(h.createdAt), state: h.toState.name })),
     addedDate,
     removedDate,
     carriedOver,

@@ -14,6 +14,7 @@ const PAGES = [
   { id: 'overview', group: 'Pendant le sprint', label: 'Vue d’ensemble', sub: 'L’essentiel en 30 secondes', intro: 'Ce que le Copilot retient du sprint : les signaux qui méritent votre attention, ce qu’ils racontent ensemble et les pistes d’action. Commencez toujours par ici.' },
   { id: 'daily', group: 'Pendant le sprint', label: 'Daily', sub: 'Préparer le point du jour', intro: 'À ouvrir 5 minutes avant le Daily : ce qui a bougé depuis hier, ce qui est bloqué ou immobile, et les questions à poser à l’équipe.' },
   { id: 'sprint', group: 'Pendant le sprint', label: 'Sprint', sub: 'Board, burndown, charge', intro: 'Les données du sprint telles que le Copilot les lit dans Linear : indicateurs, board, burndown et charge par personne.' },
+  { id: 'kpis', group: 'Pendant le sprint', label: 'Indicateurs', sub: 'Imprévu, Planning, flux, blocages', intro: 'Les indicateurs de flux du sprint : d’où vient le travail imprévu, ce que vaut le Planning, où les tickets attendent entre le développement et la PROD, ce qui bloque, et les tickets en cours depuis trop longtemps.' },
   { id: 'signals', group: 'Pendant le sprint', label: 'Signaux', sub: 'Le détail, avec les preuves', intro: 'Chaque signal détecté, avec ses preuves (tickets, dates, chiffres) et la question à poser à l’équipe.' },
   { id: 'review', group: 'Fin de sprint', label: 'Sprint Review', sub: 'Livré, non livré, messages', intro: 'L’objectif du sprint, ce qui est livré, ce qui ne l’est pas et pourquoi, et les messages clés à partager.' },
   { id: 'retro', group: 'Fin de sprint', label: 'Rétrospective', sub: 'Préparer l’atelier', intro: 'Les données à montrer, la chronologie des événements, les questions à poser et le suivi des actions précédentes.' },
@@ -134,6 +135,7 @@ function render() {
     overview: viewOverview,
     daily: () => prepDaily(p.daily) + aiBox('daily', 'Rédiger la note du Daily avec Claude'),
     sprint: viewObserve,
+    kpis: viewKpis,
     signals: viewSignals,
     review: () => prepReview(p.review) + aiBox('bilan', 'Rédiger le bilan de fin de sprint avec Claude (Review, Rétro, Planning)'),
     retro: () => prepRetro(p.retro) + aiBox('bilan', 'Rédiger le bilan de fin de sprint avec Claude (Review, Rétro, Planning)'),
@@ -307,6 +309,64 @@ function ticket(i) {
   return `<div class="ticket ${cls}"><span class="key">${esc(i.key)}</span> ${esc(i.title)}<div class="meta">${tags}</div></div>`;
 }
 
+// ---------------------------------------------------------------------------
+// Page « Indicateurs » (flux)
+// ---------------------------------------------------------------------------
+function hbar(value, max, color = 'var(--brand)') {
+  return `<div class="bar"><span style="width:${max ? Math.min(100, (value / max) * 100) : 0}%;background:${color}"></span></div>`;
+}
+
+function viewKpis() {
+  const f = state.data.flow;
+  const o = state.data.observe;
+  if (!f) return '<p class="empty">Indicateurs indisponibles.</p>';
+  const u = f.unplanned;
+  const p = f.planning;
+  const c = f.cycle;
+  const b = f.blockages;
+  const unknown = u.byOrigin.filter((x) => /non précisée/.test(x.origin)).reduce((a, x) => a + x.count, 0);
+  const maxOrigin = Math.max(1, ...u.byOrigin.map((x) => x.count));
+  const maxStage = Math.max(1, ...c.stages.map((x) => x.median || 0));
+  const maxCause = Math.max(1, ...b.byCause.map((x) => x.ticketDays));
+  const ageColor = { risk: 'var(--critical)', watch: 'var(--attention)', ok: 'var(--ok)' };
+  const ageLabel = { risk: 'à risque', watch: 'à surveiller', ok: 'normal' };
+
+  return `
+    <div class="section-title"><h2>En un coup d’œil</h2><span class="muted small">${o.closed ? 'Sprint terminé' : `Au jour ${o.dayIndex}/${o.totalDays}`}</span></div>
+    <div class="kpis">
+      ${kpi('Tickets imprévus', `${u.count}<span class="muted small"> / ${o.metrics.scopeCount}</span>`, `${pct(u.ratio)} du sprint, entrés après le Planning`)}
+      ${kpi(o.closed ? 'Tickets planifiés livrés' : 'Planifiés déjà livrés', p.accuracy == null ? '—' : pct(p.accuracy), `${p.plannedDone}/${p.planned} tickets du Planning`)}
+      ${kpi('Part du livré qui était planifiée', p.shareOfDone == null ? '—' : pct(p.shareOfDone), `sur ${p.done} tickets livrés`)}
+      ${kpi('Délai jusqu’en PROD', c.leadToProd ? `${r1(c.leadToProd.median)} j` : '—', c.leadToProd ? `médiane · ${pct(c.leadToProd.share)} des tickets finis sont en PROD` : 'pas assez de tickets passés en PROD')}
+      ${kpi('Jours-ticket bloqués', b.ticketDays, `${b.blockedNow.length} bloqué${b.blockedNow.length > 1 ? 's' : ''} maintenant`)}
+    </div>
+
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card"><h3>D’où vient le travail imprévu ?</h3>
+        ${u.count ? u.byOrigin.map((x) => `<div class="bar-row"><span>${esc(x.origin)}</span>${hbar(x.count, maxOrigin, /non précisée/.test(x.origin) ? 'var(--muted)' : 'var(--attention)')}<span class="small muted">${x.count} ticket${x.count > 1 ? 's' : ''}${x.points ? ` · ${x.points} pts` : ''}</span></div>`).join('') : '<p class="empty">Aucun ticket ajouté après le Planning.</p>'}
+        ${unknown && unknown >= u.count / 2 ? `<p class="small muted" style="margin-top:8px">${unknown} des ${u.count} tickets imprévus n’ont pas de label <code>Source/…</code> : ajouter ce label à l’entrée d’un ticket en cours de sprint (Customer care, Business developer…) rendra cet indicateur exploitable.</p>` : ''}
+        ${u.count ? `<details><summary>Voir les ${u.count} tickets</summary><ul>${u.byOrigin.flatMap((x) => x.issues.map((i) => `<li><b>${esc(i.key)}</b> ${esc(i.title)} <span class="muted small">— ${esc(x.origin.toLowerCase())}, ajouté le ${dm(i.addedDate)}${i.done ? ', terminé' : ''}</span></li>`)).join('')}</ul></details>` : ''}
+      </div>
+      <div class="card"><h3>Où les tickets attendent-ils ?</h3>
+        <p class="small muted">Durée médiane de chaque étape, en jours ouvrés, sur ${c.tickets} tickets terminés (3 derniers sprints et sprint affiché).</p>
+        ${c.stages.map((x) => `<div class="bar-row"><span>${esc(x.label)}</span>${x.median != null ? hbar(x.median, maxStage, c.bottleneck?.key === x.key ? 'var(--critical)' : 'var(--brand)') : '<div class="bar"></div>'}<span class="small muted">${x.median != null ? `${r1(x.median)} j` : 'données insuffisantes'} · n=${x.tickets}</span></div>`).join('')}
+        ${c.bottleneck ? `<p style="margin-top:8px"><b>Étape la plus longue : ${esc(c.bottleneck.label.toLowerCase())}</b> (${r1(c.bottleneck.median)} j en médiane, 85 % des tickets en moins de ${r1(c.bottleneck.p85)} j).</p>` : ''}
+        ${c.stages.some((x) => !x.reliable) ? `<p class="small muted">« Données insuffisantes » = moins de ${c.minSample} tickets sont passés par ce statut : l’équipe l’utilise peu ou le saute.</p>` : ''}
+      </div>
+    </div>
+
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card"><h3>Âge du travail en cours</h3>
+        ${f.aging ? `<p class="small muted">D’habitude, la moitié des tickets se terminent en ${f.aging.thresholds.p50} j ouvrés et 85 % en ${f.aging.thresholds.p85} j${f.aging.thresholds.fallback ? ' (seuils par défaut : historique insuffisant)' : ` (sur ${f.aging.thresholds.basedOn} tickets terminés)`}.</p>
+          ${f.aging.items.length ? `<table><thead><tr><th>Ticket</th><th class="num">En cours depuis</th><th>État</th></tr></thead><tbody>${f.aging.items.map((i) => `<tr><td><b>${esc(i.key)}</b> ${esc(i.title)} <span class="muted small">(${esc(name(i.assignee))})</span></td><td class="num">${i.age} j</td><td><span class="tag" style="color:${ageColor[i.level]}">${ageLabel[i.level]}</span>${i.blocked ? ' <span class="tag red">bloqué</span>' : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">Aucun ticket en cours (statut « In Progress »).</p>'}` : '<p class="empty">Sprint terminé.</p>'}
+      </div>
+      <div class="card"><h3>Blocages : durée et causes</h3>
+        ${b.byCause.length ? b.byCause.map((x) => `<div class="bar-row"><span>${esc(x.cause)}</span>${hbar(x.ticketDays, maxCause, 'var(--critical)')}<span class="small muted">${x.ticketDays} j · ${x.tickets.length} ticket${x.tickets.length > 1 ? 's' : ''}${x.open ? ` · ${x.open} en cours` : ''}</span></div>`).join('') : '<p class="empty">Aucun blocage déclaré pendant ce sprint (statut « Stuck » ou labels « Besoin … », « En Standby »).</p>'}
+      </div>
+    </div>
+    <p class="small muted" style="margin-top:12px">L’évolution de la précision du Planning et de l’imprévu d’un sprint à l’autre se trouve dans <b>Tendances</b>.</p>`;
+}
+
 /** Charge de chaque développeur, en additionnant ses estimations sur tous les projets suivis. */
 function portfolioCard(p) {
   if (!p?.devs?.length) return '';
@@ -348,7 +408,7 @@ function viewObserve() {
       ${kpi('Points estimés terminés', `${m.donePoints}<span class="muted small"> / ${m.scopePoints}</span>`, 'un ticket non estimé compte 0')}
       ${kpi('Engagement initial', m.committedPoints, `${committed.length} tickets au Planning`)}
       ${kpi('Ajouts en cours', `+${m.addedPoints}`, `${pct(m.scopeChangeRatio)} de l’engagement`)}
-      ${o.closed ? kpi('Fiabilité (say/do)', pct(m.sayDo), 'engagé et livré') : kpi('Probabilité de finir', o.forecast ? pct(o.forecast.probability) : '—', 'simulation Monte Carlo')}
+      ${o.closed ? kpi('Tickets planifiés livrés', pct(m.planningAccuracy), `${m.plannedDoneCount}/${m.plannedCount} du Planning`) : kpi('Probabilité de finir', o.forecast ? pct(o.forecast.probability) : '—', 'simulation Monte Carlo')}
       ${kpi('Cycle time moyen', m.avgCycleTime ? `${r1(m.avgCycleTime)} j` : '—', 'début → terminé')}
       ${kpi('WIP moyen', r1(m.avgWip), `${o.load.length} personnes`)}
       ${kpi('Jours-ticket bloqués', m.blockedIssueDays, `${m.blockedNowCount} bloqué${m.blockedNowCount > 1 ? 's' : ''} maintenant`)}

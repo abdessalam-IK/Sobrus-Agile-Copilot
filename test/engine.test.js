@@ -43,14 +43,49 @@ test('OBSERVE : un sprint qui démarre un jour férié garde son engagement', ()
   assert.equal(s3.metrics.addedPoints, 0);
 });
 
-test('UNDERSTAND : détecte un blocage actif et un ticket immobile', () => {
+test('UNDERSTAND : détecte un blocage actif et un ticket en cours depuis trop longtemps', () => {
   const ds = tiny([
     issue({ key: 'X-1', history: [{ date: '2026-01-05', to: 'in_progress' }], blocks: [{ from: '2026-01-06', to: null, reason: 'API', dependency: 'Partenaire' }] }),
     issue({ key: 'X-2', assignee: 'b', history: [{ date: '2026-01-05', to: 'in_progress' }] }),
   ]);
-  const types = analyze(ds, 'T1').think.signals.map((s) => s.type);
-  assert.ok(types.includes('active_blockers'));
-  assert.ok(types.includes('stuck_issues'));
+  // Sans historique, seuils par défaut : 85 % des tickets en 5 jours ; au 13/01, X-2 est en cours depuis 7 jours ouvrés
+  const signals = analyze(ds, 'T1', { asOf: '2026-01-13' }).think.signals;
+  assert.ok(signals.some((s) => s.type === 'active_blockers'));
+  const aging = signals.find((s) => s.type === 'aging_wip');
+  assert.ok(aging && aging.issues.includes('X-2'));
+});
+
+test('FLOW : origine du travail imprévu et précision du Planning', async () => {
+  const { unplanned, planning } = await import('../src/engine/flow.js');
+  const ds = tiny([
+    issue({ key: 'P-1', history: [{ date: '2026-01-06', to: 'done' }] }),
+    issue({ key: 'P-2' }),
+    issue({ key: 'U-1', addedDate: '2026-01-07', labels: ['Source/Customer care'], history: [{ date: '2026-01-08', to: 'done' }] }),
+    issue({ key: 'U-2', addedDate: '2026-01-07', type: 'bug' }),
+  ]);
+  const snap = analyze(ds, 'T1').observe;
+  const u = unplanned(snap);
+  assert.equal(u.count, 2);
+  assert.deepEqual(u.byOrigin.map((o) => o.origin).sort(), ['Bug (source non précisée)', 'Support client']);
+  const p = planning(snap);
+  assert.equal(p.planned, 2);
+  assert.equal(p.plannedDone, 1);
+  assert.equal(p.accuracy, 0.5);
+  assert.equal(p.shareOfDone, 0.5);
+});
+
+test('FLOW : cycle time par étape à partir de l’historique des statuts', async () => {
+  const { stageDurations } = await import('../src/engine/flow.js');
+  const d = stageDurations({ stages: [
+    { at: '2026-01-05T09:00:00Z', date: '2026-01-05', state: 'Todo for Dev' },
+    { at: '2026-01-07T09:00:00Z', date: '2026-01-07', state: 'In Progress' },
+    { at: '2026-01-09T09:00:00Z', date: '2026-01-09', state: 'Done à tester' },
+    { at: '2026-01-13T09:00:00Z', date: '2026-01-13', state: 'Vérifié par QA' },
+    { at: '2026-01-14T09:00:00Z', date: '2026-01-14', state: 'Vérifié en OVH' },
+    { at: '2026-01-20T09:00:00Z', date: '2026-01-20', state: 'Vérifié en PROD' },
+  ] });
+  assert.deepEqual({ queue: d.queue, dev: d.dev, qa: d.qa, ovh: d.ovh, prod: d.prod }, { queue: 2, dev: 2, qa: 2, ovh: 1, prod: 4 });
+  assert.equal(d.leadToProd, 9);
 });
 
 test('UNDERSTAND : détecte les ajouts en cours de sprint', () => {
@@ -82,9 +117,9 @@ test('UNDERSTAND : dépendance récurrente reconnue sur plusieurs sprints', () =
   assert.equal(rec.meta.sprints, 3);
 });
 
-test('LEARN : la tendance détecte la dégradation de la fiabilité', () => {
+test('LEARN : la tendance détecte la dégradation de la précision du Planning', () => {
   const { learn } = analyze(dataset, 'S6');
-  assert.equal(learn.trend.sayDo.quality, 'worse');
+  assert.equal(learn.trend.planningAccuracy.quality, 'worse');
   assert.ok(learn.patterns.some((p) => p.type === 'retro'));
 });
 
