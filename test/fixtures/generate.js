@@ -2,12 +2,12 @@
 // Le scénario est volontairement construit pour faire émerger des signaux faibles :
 //   S1–S2 sains → S3 arrivée d'une dépendance externe → S4 urgences support & besoin instable
 //   → S5 blocages récurrents, WIP élevé, livraison en fin de sprint → S6 (en cours) zombie, goulot, concentration.
-// Usage : node data/generate.js
+// Usage : npm run generate (jeu de données de test, fictif)
 
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { workingDays } from '../src/lib/calendar.js';
+import { workingDays } from '../../src/lib/calendar.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 

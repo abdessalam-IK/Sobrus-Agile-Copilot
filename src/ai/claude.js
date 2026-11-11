@@ -4,7 +4,7 @@
 
 import { execSync, spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
 
 const MODEL = process.env.SOBRUS_AI_MODEL || 'claude-opus-5-5';
@@ -22,13 +22,10 @@ Principes :
 - Privilégie l'essentiel : 3 points forts valent mieux que 10 points moyens.
 - Écris en français professionnel, clair et chaleureux, au format Markdown, sans préambule.`;
 
+// Deux rédactions seulement : la note du Daily, et le bilan de fin de sprint (Review + Rétro + Planning).
 const TASKS = {
-  insights: 'Rédige la synthèse « Insights » du sprint : un paragraphe d’ouverture (« Ce sprint présente N signaux… »), puis pour chaque signal majeur : ce qu’on observe (faits), ce que cela pourrait signifier (hypothèses), et la question à poser à l’équipe. Termine par la lecture transverse : ce que ces signaux racontent ensemble.',
   daily: 'Prépare une note de 5 lignes maximum pour le Scrum Master avant le Daily : ce qui a bougé, ce qui menace l’objectif, et 2 questions à poser. Le Daily doit rester centré sur l’objectif du sprint.',
-  review: 'Prépare le déroulé de la Sprint Review (45 min) : messages clés, ordre de démo, manière d’annoncer ce qui n’est pas livré sans langue de bois, et questions à poser aux parties prenantes.',
-  retro: 'Prépare la rétrospective : format recommandé et pourquoi, déroulé minuté (60 min), données à montrer, questions puissantes, et 2 expériences d’amélioration SMART possibles. Rappelle le suivi des actions précédentes.',
-  planning: 'Prépare le prochain Sprint Planning : capacité, fourchette d’engagement réaliste, éléments à challenger avec la raison, préconditions, et une proposition d’objectif de sprint. Sois explicite sur les risques de sur-engagement.',
-  learn: 'Analyse l’évolution sur plusieurs sprints : qu’est-ce qui est en train de changer dans la manière de travailler de l’équipe ? Identifie les dynamiques (causes probables, boucles de renforcement), ce qui s’améliore, et ce que l’équipe devrait observer dans les prochains sprints.',
+  bilan: 'Rédige le bilan de fin de sprint, en trois parties courtes. 1) Sprint Review : messages clés, ce qui est livré et ce qui ne l’est pas avec la raison, dit sans langue de bois. 2) Rétrospective : les 2 ou 3 sujets à discuter, appuyés sur les données, le suivi des actions précédentes, et 2 expériences d’amélioration mesurables. 3) Prochain Planning : capacité, fourchette d’engagement réaliste, éléments à challenger avec la raison, et une proposition d’objectif de sprint.',
 };
 
 function payloadFor(kind, analysis) {
@@ -45,12 +42,8 @@ function payloadFor(kind, analysis) {
   };
   const signals = t.signals.map(({ type, theme, severity, title, narrative, evidence, question, hypotheses }) => ({ type, theme, severity, title, narrative, evidence, question, hypotheses }));
   switch (kind) {
-    case 'insights': return { ...base, signals, crossReadings: t.crossReadings, recommendations: t.recommendations };
     case 'daily': return { ...base, daily: p.daily };
-    case 'review': return { ...base, review: p.review, insights: t.insights.map((i) => ({ label: i.label, headline: i.headline, level: i.level.label })) };
-    case 'retro': return { ...base, retro: p.retro, signals, crossReadings: t.crossReadings };
-    case 'planning': return { ...base, planning: p.planning, risks: p.risks, patterns: l.patterns };
-    case 'learn': return { sprint: o.sprint, learn: { headline: l.headline, series: l.series, trend: l.trend, shifts: l.shifts, patterns: l.patterns, dominant: l.dominant } };
+    case 'bilan': return { ...base, signals, crossReadings: t.crossReadings, features: o.features, review: p.review, retro: p.retro, planning: p.planning, trends: { headline: l.headline, shifts: l.shifts, patterns: l.patterns } };
     default: throw new Error(`Type de préparation inconnu : ${kind}`);
   }
 }
@@ -76,6 +69,9 @@ function findClaudeBinary() {
     execSync(process.platform === 'win32' ? 'where claude' : 'command -v claude', { stdio: 'ignore' });
     return 'claude';
   } catch { /* pas dans le PATH */ }
+  // Installation native de Claude Code (~/.local/bin), hors du PATH de certains terminaux
+  const native = path.join(homedir(), '.local', 'bin', process.platform === 'win32' ? 'claude.exe' : 'claude');
+  if (existsSync(native)) return native;
   // L'application Windows est un package MSIX : son AppData\Roaming est redirigé vers
   // %LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming hors de l'application.
   const roots = [];

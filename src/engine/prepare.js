@@ -49,9 +49,6 @@ function review(snap, thought, names) {
   for (const i of done) (byEpic[i.epic] ||= []).push({ key: i.key, title: i.title, points: i.points, goal: i.goal });
   const reason = (i) => (i.blockedNow || i.currentBlock ? `bloqué (${i.currentBlock?.reason || 'blocage'})` : i.status === 'todo' ? 'non démarré' : i.churn >= 2 ? `besoin modifié en cours de sprint (${STATUS_LABELS[i.status].toLowerCase()})` : STATUS_LABELS[i.status].toLowerCase());
   const goalReached = snap.metrics.goalTotal > 0 && snap.metrics.goalDone === snap.metrics.goalTotal;
-  const demo = [...done].sort((a, b) => Number(b.goal) - Number(a.goal) || pts(b) - pts(a)).filter((i) => i.type !== 'task').slice(0, 5)
-    .map((i) => ({ key: i.key, title: i.title, presenter: names(i.assignee) }));
-  const negative = (snap.review?.feedback || []).filter((f) => f.sentiment === 'negative');
   return {
     anticipated: !snap.closed,
     goal: snap.sprint.goal,
@@ -61,39 +58,18 @@ function review(snap, thought, names) {
     notDelivered: notDone.map((i) => ({ key: i.key, title: i.title, points: i.points, reason: reason(i) })),
     scopeAdded: snap.issues.filter((i) => i.addedMidSprint).map((i) => ({ key: i.key, title: i.title, points: i.points })),
     feedback: snap.review?.feedback || [],
-    demo,
     keyMessages: [
       `${snap.metrics.donePoints} points livrés sur ${snap.metrics.scopePoints} (${pct(snap.metrics.completionRatio)}).`,
       goalReached ? 'L’objectif du sprint est atteint.' : `L’objectif du sprint n’est pas entièrement atteint (${snap.metrics.goalDone}/${snap.metrics.goalTotal}).`,
       ...thought.insights.filter((i) => i.severity >= 0.5 && ['dependencies', 'scope', 'predictability'].includes(i.theme)).map((i) => `Point d’attention à partager : ${i.headline}.`),
     ],
-    questionsForStakeholders: [
-      'Ce qui a été livré correspond-il à ce dont les pharmacies ont besoin en priorité ?',
-      notDone.some((i) => i.goal) ? 'Faut-il maintenir la priorité des éléments non terminés de l’objectif pour le prochain sprint ?' : null,
-      snap.issues.some((i) => i.addedMidSprint) ? 'Comment mieux canaliser les demandes urgentes pour protéger le sprint ?' : null,
-      thought.signals.some((s) => s.theme === 'dependencies') ? 'Qui, côté management, peut aider à débloquer la dépendance partenaire ?' : null,
-      negative.length ? 'Quelle information vous permettrait d’avoir confiance dans la prévision de livraison ?' : null,
-    ].filter(Boolean),
   };
 }
 
 // ---------------------------------------------------------------------------
 // Rétrospective
 // ---------------------------------------------------------------------------
-const FORMATS = {
-  dependencies: { name: 'Sailboat (voilier)', why: 'les ancres (blocages, dépendances) dominent ce sprint : le format aide à distinguer ce qui freine de ce qui fait avancer et des risques à venir (rochers).' },
-  flow: { name: 'Timeline du flux + Mad / Sad / Glad', why: 'le sujet principal est le flux : reconstituer la chronologie du sprint rend visibles les temps d’attente.' },
-  scope: { name: 'Start / Stop / Continue (focalisé sur l’arrivée des demandes)', why: 'le périmètre a bougé : il s’agit de redéfinir les règles d’entrée dans le sprint.' },
-  predictability: { name: 'Speedboat avec la prévision vs le réel', why: 'l’écart entre l’engagement et la livraison est le fil rouge du sprint.' },
-  quality: { name: '4L (Liked, Learned, Lacked, Longed for)', why: 'la qualité est en jeu : le format ouvre la discussion sur ce qui a manqué.' },
-  team: { name: 'Team Radar + check-in émotionnel', why: 'des signaux portent sur la charge et le ressenti : commencer par l’humain.' },
-  improvement: { name: 'Retro of retros', why: 'les actions passées ne sont pas appliquées : il faut d’abord comprendre pourquoi.' },
-  stakeholders: { name: 'Mad / Sad / Glad', why: 'le feedback des parties prenantes est le point saillant.' },
-};
-
 function retrospective(snap, thought, history, names) {
-  const top = thought.insights[0];
-  const format = FORMATS[top?.theme] || { name: 'Mad / Sad / Glad', why: 'sprint sans tension dominante : un format ouvert suffit.' };
   const timeline = [];
   for (const i of snap.issues) {
     for (const b of i.blocks) {
@@ -112,7 +88,6 @@ function retrospective(snap, thought, history, names) {
   const m = snap.metrics;
   return {
     anticipated: !snap.closed,
-    format,
     dataCards: [
       { label: 'Points livrés', value: `${m.donePoints}/${m.scopePoints}` },
       { label: 'Fiabilité de l’engagement', value: pct(m.sayDo) },
@@ -130,11 +105,6 @@ function retrospective(snap, thought, history, names) {
       owner: r.owner,
       measure: 'À vérifier automatiquement par le Copilot lors de la prochaine analyse.',
     })),
-    facilitationNotes: [
-      'Présenter les données comme un point de départ, pas comme un jugement.',
-      'Laisser l’équipe formuler ses propres causes avant de montrer les hypothèses du Copilot.',
-      'Repartir avec 1 ou 2 actions maximum, avec un responsable et une date.',
-    ],
   };
 }
 
@@ -204,23 +174,6 @@ function planning(snap, thought, history, dataset, names) {
 }
 
 // ---------------------------------------------------------------------------
-// Registre des risques
-// ---------------------------------------------------------------------------
-function risks(thought) {
-  return thought.signals
-    .filter((s) => ['dependencies', 'predictability', 'team', 'quality', 'scope'].includes(s.theme) && s.severity >= 0.3)
-    .map((s) => ({
-      title: s.title,
-      theme: s.theme,
-      probability: s.severity >= 0.7 ? 'Élevée' : s.severity >= 0.5 ? 'Moyenne' : 'Faible',
-      impact: s.issues.length >= 3 || /objectif/i.test(s.title) ? 'Fort' : 'Modéré',
-      mitigation: s.recommendation?.text,
-      owner: s.recommendation?.owner,
-      severity: s.severity,
-    }));
-}
-
-// ---------------------------------------------------------------------------
 // Rapport (Markdown) — pour le management ou la Review
 // ---------------------------------------------------------------------------
 export function reportMarkdown({ snap, thought, prepared, learned }) {
@@ -256,9 +209,6 @@ export function reportMarkdown({ snap, thought, prepared, learned }) {
   L.push('## Recommandations (à valider par l’équipe)');
   for (const r of thought.recommendations) L.push(`- ${r.text} *(${r.owner} — parce que : ${r.because})*`);
   L.push('');
-  L.push('## Risques');
-  for (const r of prepared.risks.slice(0, 6)) L.push(`- ${r.title} — probabilité ${r.probability}, impact ${r.impact}. Mitigation : ${r.mitigation}`);
-  L.push('');
   L.push('## Ce qui change dans notre manière de travailler');
   L.push(learned.headline);
   for (const s of learned.shifts) L.push(`- **${s.title}** : ${s.text}`);
@@ -283,6 +233,5 @@ export function prepare(snap, thought, history, dataset) {
     review: review(snap, thought, names),
     retro: retrospective(snap, thought, history, names),
     planning: planning(snap, thought, history, dataset, names),
-    risks: risks(thought),
   };
 }

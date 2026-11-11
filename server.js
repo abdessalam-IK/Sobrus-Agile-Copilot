@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyze, summary } from './src/engine/index.js';
-import { loadDataset, loadFeedback, recordFeedback } from './src/store.js';
+import { loadDataset } from './src/store.js';
 import { generate, aiConfigured, aiModel, aiProvider, AI_KINDS } from './src/ai/claude.js';
 
 const PORT = Number(process.env.PORT || 4300);
@@ -24,7 +24,7 @@ async function readBody(req) {
   return raw ? JSON.parse(raw) : {};
 }
 
-const runAnalysis = (sprintId, asOf) => analyze(loadDataset(), sprintId, { asOf, feedback: loadFeedback().bySignal });
+const runAnalysis = (sprintId, asOf) => analyze(loadDataset(), sprintId, { asOf });
 
 async function route(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -51,16 +51,18 @@ async function route(req, res) {
   }
   if (req.method === 'POST' && parts[1] === 'sync') {
     const { syncLinear } = await import('./src/sync.js');
-    const current = loadDataset();
-    if (current.meta?.source !== 'linear') return send(res, 400, { error: 'Le jeu de données actuel ne provient pas de Linear.' });
-    return send(res, 200, await syncLinear({ teamKey: current.meta.teamKey }));
+    let teamKey;
+    try {
+      teamKey = loadDataset().meta?.teamKey;
+    } catch {
+      // Première synchronisation : pas encore de données, l'équipe vient de LINEAR_TEAM (défaut SUPP)
+    }
+    return send(res, 200, await syncLinear({ teamKey }));
   }
-  if (req.method === 'GET' && parts[1] === 'feedback') return send(res, 200, loadFeedback());
-  if (req.method === 'POST' && parts[1] === 'feedback') return send(res, 200, recordFeedback(await readBody(req)));
   if (req.method === 'POST' && parts[1] === 'ai' && parts[2]) {
     const { kind, asOf: bodyAsOf } = await readBody(req);
     const dataset = loadDataset();
-    const analysis = analyze(dataset, parts[2], { asOf: bodyAsOf, feedback: loadFeedback().bySignal });
+    const analysis = analyze(dataset, parts[2], { asOf: bodyAsOf });
     return send(res, 200, await generate(kind, analysis, dataset));
   }
   return send(res, 404, { error: 'Route inconnue' });

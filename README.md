@@ -1,110 +1,78 @@
 # Sobrus AI Copilot
 
 **Une couche d'intelligence autour du delivery Agile des équipes Sobrus.**
-Prototype expérimental qui accompagne un sprint de bout en bout :
-
-```
-Backlog → Sprint Planning → Sprint → Daily → Metrics → Risks → Sprint Review → Rétrospective → Next Sprint
-                                        ↓
-                                    AI LAYER
-                                        ↓
-       INSIGHTS → RISQUES → RECOMMANDATIONS → PRÉPARATION → APPRENTISSAGE
-```
+Il lit les sprints dans Linear et la capacité dans les Google Sheets, repère les signaux faibles et prépare les cérémonies.
 
 > L'IA ne remplace ni le Scrum Master, ni le Product Owner, ni l'équipe.
-> Elle observe le sprint, repère les signaux faibles et prépare l'équipe pour la suite.
+> Elle observe le sprint, relie les signaux et prépare la discussion.
 
 ## Démarrage rapide
 
-Prérequis : Node.js 20 ou plus récent.
+Prérequis : Node.js 20 ou plus récent, une clé API Linear en lecture seule.
+
+1. Dans un fichier `.env` à la racine (jamais versionné) : `LINEAR_API_KEY=lin_api_...`
+2. Exports CSV de la Sheet « Taux d'Occupation Sobrus » dans `data/private/Sheets/`.
 
 ```bash
 npm install
 ```
 
 ```bash
+npm run sync
+```
+
+```bash
 npm start
 ```
 
-Ouvrir http://localhost:4300. Le jeu de données de démo (6 sprints fictifs de la *Squad Officine – Sobrus Pharma*) est déjà généré. Le sprint 6 est « en cours » au 08/10/2026.
+Ouvrir http://localhost:4300. Ensuite, le bouton **↻ Synchroniser Linear** rafraîchit les données sans passer par le terminal.
 
-Pour activer la couche IA générative (optionnelle), définir la clé avant de lancer le serveur :
+## Comment ça marche
 
-```bash
-ANTHROPIC_API_KEY=sk-ant-... npm start
-```
+| Étape | Ce qu'elle fait | Code |
+|---|---|---|
+| **Observer** | Reconstruit chaque sprint depuis l'historique Linear : statuts, ajouts, reports, blocages, capacité, fonctionnalités et leurs sous-tickets. | [observe.js](src/engine/observe.js) |
+| **Comprendre** | Détecteurs de signaux : tickets immobiles, blocages, ajouts après le Planning, reports, besoin qui change, tickets rouverts, concentration de la charge, absences, tickets non estimés, sous-tickets hors du cycle, prévision de fin de sprint… | [understand.js](src/engine/understand.js) |
+| **Penser** | Regroupe les signaux par thème, produit le titre du sprint (3 priorités au plus), la lecture transverse, les recommandations et le score de santé. | [think.js](src/engine/think.js) |
+| **Préparer** | Daily, Sprint Review, Rétrospective (données, chronologie, suivi des actions), prochain Planning (capacité, fourchette, tickets à challenger), rapport Markdown. | [prepare.js](src/engine/prepare.js) |
+| **Apprendre** | Compare les sprints : tendances, glissements dans la manière de travailler, problèmes qui reviennent. | [learn.js](src/engine/learn.js) |
 
-Le moteur d'analyse fonctionne entièrement **sans IA générative** : il est déterministe, explicable et testable. Claude intervient ensuite pour rédiger, synthétiser et approfondir.
+Le moteur est déterministe, explicable et testé. Claude n'intervient qu'à la fin, pour rédiger : [src/ai/claude.js](src/ai/claude.js).
 
-## Les 5 briques
+### Santé du sprint
 
-| # | Brique | Ce qu'elle fait | Code |
-|---|--------|-----------------|------|
-| 01 | **OBSERVE** | Récupère backlog, tickets, statuts, délais, blocages, capacité, commentaires, feedback, historique. Peut **rejouer** un sprint jour par jour. | [observe.js](src/engine/observe.js) |
-| 02 | **UNDERSTAND** | 17 détecteurs de patterns : tickets immobiles, blocages, goulot externe, dépendance récurrente, WIP, ajouts en cours de sprint, besoin instable, baisse de vélocité, sur-engagement, prévision Monte Carlo, objectif menacé, tickets zombies, livraison en fin de sprint, qualité, concentration de charge, absences, signaux faibles dans les commentaires, actions de rétro non suivies, inquiétude des parties prenantes. | [understand.js](src/engine/understand.js) |
-| 03 | **THINK** | Relie les signaux en insights par thème, produit le titre (« Ce sprint présente trois signaux… »), la lecture transverse, le score de santé et les recommandations. | [think.js](src/engine/think.js) |
-| 04 | **PREPARE** | Prépare le Daily, la Sprint Review, la Rétrospective (format suggéré, chronologie, suivi des actions), le prochain Sprint Planning (capacité, fourchette, éléments à challenger), le registre des risques et un rapport Markdown. | [prepare.js](src/engine/prepare.js) |
-| 05 | **LEARN** | Compare les sprints : tendances, glissements dans la manière de travailler, patterns persistants, carte de chaleur des thèmes, et **apprentissage par le feedback** (👍/👎 sur chaque signal → pondération). | [learn.js](src/engine/learn.js) |
+**Santé = 60 % avancement + 40 % signaux**, sans double comptage :
+- **avancement** : travail terminé comparé à l'attendu à ce jour du sprint (en tickets, et en points quand au moins 75 % des tickets sont estimés) ;
+- **signaux** : un seul retrait par thème (le signal le plus grave) ; la prévision de fin de sprint n'y compte pas, elle est déjà dans l'avancement.
 
-Couche IA générative : [src/ai/claude.js](src/ai/claude.js) — reçoit uniquement l'analyse agrégée, **noms pseudonymisés par défaut**.
+Le détail du calcul est affiché sous la jauge et dans les Précisions.
 
 ## Interface
 
 Un seul menu, dans l'ordre où l'on en a besoin au fil du sprint. Le badge **« conseillé »** indique la page utile au moment présent.
 
-| Groupe | Page | À quoi elle sert | Brique |
-|---|---|---|---|
-| Pendant le sprint | **Vue d'ensemble** | L'essentiel en 30 secondes : signaux prioritaires, lecture transverse, recommandations | THINK |
-| | **Daily** | Ce qui a bougé, ce qui bloque, les questions à poser | PREPARE |
-| | **Sprint** | Indicateurs, board, burndown, charge par personne | OBSERVE |
-| | **Signaux & risques** | Chaque signal avec ses preuves (votes 👍/👎) et le registre des risques | UNDERSTAND |
-| Fin de sprint | **Sprint Review** · **Rétrospective** · **Prochain Planning** | Préparation de chaque cérémonie | PREPARE |
-| Prendre du recul | **Tendances** | Ce qui change de sprint en sprint | LEARN |
-| | **Rapport** | Export Markdown | PREPARE |
+| Groupe | Page | À quoi elle sert |
+|---|---|---|
+| Pendant le sprint | **Vue d'ensemble** | L'essentiel en 30 secondes : signaux prioritaires, lecture transverse, recommandations |
+| | **Daily** | Ce qui a bougé, ce qui bloque, les questions à poser |
+| | **Sprint** | Indicateurs, board, fonctionnalités, burndown, charge par développeur |
+| | **Signaux** | Chaque signal avec ses preuves et la question à poser |
+| Fin de sprint | **Sprint Review** · **Rétrospective** · **Prochain Planning** | Préparation de chaque cérémonie |
+| Prendre du recul | **Tendances** | Ce qui change de sprint en sprint |
+| | **Rapport** | Export Markdown |
 
-- **↻ Synchroniser Linear** (en haut à droite) : rafraîchit Linear et les Sheets en ~20 s. La date passe en orange si les données ne sont pas du jour.
-- **« Voir le sprint au jour N »** : remonter dans le temps pour voir ce que le Copilot aurait signalé ce jour-là.
-- **Boutons ✦ Claude** : rédaction de chaque préparation avec votre siège Claude (Claude Code), sans clé API.
-
-## Ligne de commande
-
-```bash
-node cli.js signals S6
-```
-
-```bash
-node cli.js report S6 --out rapport-S6.md
-```
-
-```bash
-node cli.js report S5 --asOf 2026-09-24
-```
-
-Exemple de rapport généré : [docs/exemple-rapport-S6.md](docs/exemple-rapport-S6.md).
-
-## Brancher de vraies données (Jira)
-
-Adaptateur expérimental : [src/adapters/jira.js](src/adapters/jira.js).
-
-```bash
-JIRA_BASE_URL=https://<instance>.atlassian.net JIRA_EMAIL=... JIRA_API_TOKEN=... node cli.js import-jira --board 12 --out data/jira.json
-```
-
-```bash
-SOBRUS_DATA_FILE=data/jira.json npm start
-```
-
-Conventions : drapeau *Impediment* = blocage ; étiquette `dependance:<nom>` = dépendance externe ; statut contenant *review / revue / QA / test* = en revue. Le feedback de Review, les actions de rétro et les absences ne sont pas dans Jira : les ajouter dans le JSON (champs `review`, `retro`, `absences` — voir [le format](docs/VISION.md#format-des-données)).
+- **Étoiles ★** dans le bandeau : chaque point renvoie aux **Précisions** en bas de page (tickets concernés, preuves, question à poser).
+- **Rédaction avec Claude** : la note du Daily, et le bilan de fin de sprint (Review, Rétro et Planning en un seul document). Elle passe par Claude Code et votre siège Claude, sans clé API.
 
 ## Équipe et capacité
 
 Toutes les personnes assignées dans Linear sont visibles, mais **seuls les développeurs comptent dans la capacité** :
 
-1. **Référence** : la liste « Développeurs » de l'onglet *Config* de la Sheet « Taux d'Occupation Sobrus ». Les autres personnes (responsables, PO, design…) sont affichées « hors capacité ».
-2. **Par sprint** : un développeur de cette liste compte dans un sprint s'il a au moins un ticket de l'équipe dans ce sprint. La Sheet couvre tout Sobrus, et un développeur d'une autre équipe ne doit pas gonfler la capacité.
+1. **Référence** : la liste « Développeurs » de l'onglet *Config* de la Sheet. Les autres personnes (responsables, PO, design…) sont affichées « hors capacité ».
+2. **Par sprint** : un développeur de cette liste compte dans un sprint s'il a au moins un ticket de l'équipe dans ce sprint.
 3. **Congés et jours fériés** (onglet *Manual_Input*) sont déduits.
 
-Corrections manuelles possibles, dans `data/private/equipe.json` (facultatif, non versionné), prises en compte à la prochaine synchronisation :
+Corrections manuelles possibles dans `data/private/equipe.json` (facultatif, non versionné), prises en compte à la prochaine synchronisation :
 
 ```json
 {
@@ -114,17 +82,33 @@ Corrections manuelles possibles, dans `data/private/equipe.json` (facultatif, no
 }
 ```
 
-`allocation` sert pour une personne partagée entre plusieurs équipes : 0,5 compte la moitié de ses jours.
+## Règles Linear appliquées
 
-## Configuration
+- Les statuts suivent les types Linear ; « Done à tester » compte comme terminé.
+- « Todo for Dev » compte comme à faire (pas comme en cours) ; « Stuck » compte comme bloqué.
+- Un ticket parent est terminé quand tous ses sous-tickets le sont.
+- Labels d'attente (« Besoin du Backend », « En Standby »…) = blocages ; label « commitment prod » = objectif du sprint.
+- Dates converties en heure du Maroc.
+
+## Ligne de commande
+
+```bash
+node cli.js signals
+```
+
+```bash
+node cli.js report --out rapport.md
+```
+
+## Configuration (`.env`)
 
 | Variable | Rôle | Défaut |
 |----------|------|--------|
+| `LINEAR_API_KEY` | Clé API Linear (lecture seule) | — |
+| `LINEAR_TEAM` | Équipe Linear synchronisée | `SUPP` |
+| `SOBRUS_DATA_FILE` | Fichier de données | `data/private/linear-supp.json` |
 | `PORT` | Port HTTP | `4300` |
-| `SOBRUS_DATA_FILE` | Jeu de données | `data/sobrus-demo.json` |
-| `ANTHROPIC_API_KEY` | Active la couche IA générative | — |
-| `SOBRUS_AI_MODEL` | Modèle Claude | `claude-opus-5-5` |
-| `SOBRUS_AI_PSEUDONYMIZE` | Remplace les prénoms par « Membre A, B… » avant l'envoi | `true` |
+| `SOBRUS_AI_PSEUDONYMIZE` | Remplace les prénoms par « Membre A, B… » avant l'envoi à Claude | `true` |
 
 ## Tests
 
@@ -132,16 +116,18 @@ Corrections manuelles possibles, dans `data/private/equipe.json` (facultatif, no
 npm test
 ```
 
+Les tests utilisent un jeu de données fictif ([test/fixtures](test/fixtures)), régénérable avec `npm run generate`.
+
 ## Structure
 
 ```
-data/generate.js        scénario de démo (6 sprints, signaux faibles construits)
-src/engine/             OBSERVE → UNDERSTAND → THINK → PREPARE → LEARN
-src/ai/claude.js        couche IA générative (Claude)
-src/adapters/jira.js    import Jira Cloud
+src/adapters/           Linear (lecture seule) et exports Sheets
+src/engine/             observer → comprendre → penser → préparer → apprendre
+src/ai/claude.js        rédaction avec Claude
+src/sync.js             synchronisation Linear + Sheets
 server.js / public/     API + interface web (sans framework, sans build)
 cli.js                  rapports en ligne de commande
-docs/VISION.md          vision, principes, architecture, feuille de route
+test/                   tests + jeu de données fictif
+data/private/           données réelles (jamais versionnées)
+docs/VISION.md          vision, principes, feuille de route
 ```
-
-Voir [docs/VISION.md](docs/VISION.md) pour la vision, les principes et la feuille de route de l'expérimentation.

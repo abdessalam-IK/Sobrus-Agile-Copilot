@@ -29,7 +29,7 @@ La question centrale n'est plus seulement *« Qu'avons-nous livré ? »* mais
 ```
           Sources                      Moteur déterministe (src/engine)                    Sorties
 ┌──────────────────────┐   ┌──────────────────────────────────────────────────────┐   ┌────────────────────┐
-│ Jira (adaptateur)     │   │ 01 OBSERVE    instantané à une date (rejouable)       │   │ Interface web       │
+│ Linear (lecture seule)│   │ 01 OBSERVE    instantané à une date (rejouable)       │   │ Interface web       │
 │ JSON (démo / enrichi) │──▶│ 02 UNDERSTAND 17 détecteurs → signaux + preuves       │──▶│ Rapport Markdown    │
 │ Rétro, Review, congés │   │ 03 THINK      insights, lecture transverse, santé     │   │ CLI                 │
 └──────────────────────┘   │ 04 PREPARE    Daily, Review, Rétro, Planning, risques │   │ API JSON            │
@@ -101,8 +101,8 @@ Le Copilot fait émerger la lecture LEARN : *« d'une équipe autonome à une é
 
 | Phase | Durée | Contenu | Critère de passage |
 |-------|-------|---------|--------------------|
-| **0 — Prototype** (ce dépôt) | fait | Moteur 5 briques, démo, UI, IA générative, import Jira | Démonstration aux Scrum Masters / PO |
-| **1 — Pilote 1 équipe** | 3 sprints | Import Jira réel, saisie rétro/Review dans le Copilot, usage en Daily, Review et Rétro | ≥ 60 % des signaux jugés utiles (👍) ; temps de préparation des cérémonies divisé par 2 |
+| **0 — Prototype** (ce dépôt) | fait | Moteur 5 briques, UI, IA générative, connecteur Linear + Sheets | Démonstration aux Scrum Masters / PO |
+| **1 — Pilote 1 équipe** | 3 sprints | Données Linear réelles (Sobrus Supply), saisie rétro/Review dans le Copilot, usage en Daily, Review et Rétro | ≥ 60 % des signaux jugés utiles (👍) ; temps de préparation des cérémonies divisé par 2 |
 | **2 — Calibration** | 3 sprints | Ajuster seuils et détecteurs avec l'équipe, nouveaux détecteurs (dépendances inter-équipes, revue de code, incidents prod) | Moins de 20 % de « bruit » (👎) |
 | **3 — Multi-équipes** | 1 trimestre | Plusieurs squads Sobrus, vue portefeuille (dépendances entre équipes), intégration Slack/Teams (brief du Daily, alertes) | Adoption volontaire par ≥ 3 équipes |
 | **4 — Mémoire organisationnelle** | continu | Base d'apprentissage inter-équipes : quelles expériences d'amélioration ont réellement fonctionné, et dans quel contexte | Au moins 5 expériences documentées avec effet mesuré |

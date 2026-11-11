@@ -64,9 +64,8 @@ function shifts(trend) {
 
 /**
  * @param history tableau chronologique de { snap, thought } jusqu'au sprint analysé inclus
- * @param feedback compteurs 👍/👎 par type de signal
  */
-export function learn(history, { feedback = {}, dataset } = {}) {
+export function learn(history) {
   // Un sprint au périmètre anormalement faible (congés collectifs, sprint « vide ») fausserait les tendances
   const allClosed = history.filter((h) => h.snap.closed);
   const typicalScope = median(allClosed.map((h) => h.snap.metrics.scopePoints)) || 0;
@@ -140,11 +139,6 @@ export function learn(history, { feedback = {}, dataset } = {}) {
       ? `Sur les ${Math.min(4, closed.length)} derniers sprints, la manière de travailler évolue : ${negatives.map((s) => s.title.toLowerCase()).join(' ; ')}.`
       : 'La manière de travailler est stable ou s’améliore sur les derniers sprints.';
 
-  // Mémoire d'apprentissage : ce que l'équipe a jugé utile
-  const learningMemory = Object.entries(feedback)
-    .map(([type, f]) => ({ type, useful: f.useful, notUseful: f.notUseful, weight: round(0.5 + (f.useful + 1) / (f.useful + f.notUseful + 2), 2) }))
-    .sort((a, b) => b.useful + b.notUseful - (a.useful + a.notUseful));
-
   return {
     headline,
     series,
@@ -153,7 +147,6 @@ export function learn(history, { feedback = {}, dataset } = {}) {
     shifts: shiftList,
     patterns,
     dominant,
-    learningMemory,
     sprintsAnalysed: closed.length,
     excluded: atypical.map((h) => ({ name: h.snap.sprint.name, reason: `périmètre de ${h.snap.metrics.scopePoints} pts contre ~${Math.round(typicalScope)} habituellement` })),
   };

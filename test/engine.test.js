@@ -3,10 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { observeSprint, statusAt } from '../src/engine/observe.js';
 import { analyze } from '../src/engine/index.js';
-import { feedbackWeight } from '../src/engine/think.js';
 import { workingDays } from '../src/lib/calendar.js';
 
-const dataset = JSON.parse(readFileSync(new URL('../data/sobrus-demo.json', import.meta.url)));
+const dataset = JSON.parse(readFileSync(new URL('./fixtures/sobrus-demo.json', import.meta.url)));
 
 // Mini jeu de données construit à la main pour tester les détecteurs de façon isolée.
 function tiny(issues, extra = {}) {
@@ -89,13 +88,13 @@ test('LEARN : la tendance détecte la dégradation de la fiabilité', () => {
   assert.ok(learn.patterns.some((p) => p.type === 'retro'));
 });
 
-test('LEARN : le feedback humain ajuste le poids des signaux', () => {
-  assert.equal(feedbackWeight({}, 'x'), 1);
-  assert.ok(feedbackWeight({ x: { useful: 0, notUseful: 6 } }, 'x') < 0.7);
-  assert.ok(feedbackWeight({ x: { useful: 6, notUseful: 0 } }, 'x') > 1.3);
-  const base = analyze(dataset, 'S6').think.signals.find((s) => s.type === 'concentration').severity;
-  const tuned = analyze(dataset, 'S6', { feedback: { concentration: { useful: 0, notUseful: 8 } } }).think.signals.find((s) => s.type === 'concentration').severity;
-  assert.ok(tuned < base);
+test('THINK : santé = 60 % avancement + 40 % signaux, sans double comptage', () => {
+  const { think: t } = analyze(dataset, 'S6');
+  const b = t.healthBreakdown;
+  assert.equal(t.health, Math.round(0.6 * b.progress.score + 0.4 * b.signals.score));
+  const themes = b.signals.themes.map((x) => x.theme);
+  assert.equal(new Set(themes).size, themes.length, 'un seul retrait par thème');
+  assert.ok(!b.signals.themes.some((x) => /Probabilité de terminer/.test(x.signal)), 'la prévision ne compte que dans l’avancement');
 });
 
 test('PREPARE : le Planning signale les éléments non prêts', () => {

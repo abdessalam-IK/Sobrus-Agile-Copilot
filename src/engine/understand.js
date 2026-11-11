@@ -441,31 +441,6 @@ function concentration(snap, ctx, names) {
   return out;
 }
 
-const FRICTION = [
-  { cat: 'attente', label: 'attente', re: /(on attend|en attente|toujours pas|relanc|pas de date)/i },
-  { cat: 'flou', label: 'manque de clarté', re: /(pas clair|à clarifier|re-?sp[ée]cifier|ambigu|on ne sait pas|a encore chang)/i },
-  { cat: 'pression', label: 'urgence / pression', re: /(urgent|asap|en urgence|la direction|grand compte)/i },
-  { cat: 'qualite', label: 'qualité', re: /(r[ée]gression|encore cass|rouvert|bloqu[ée] par un bug)/i },
-  { cat: 'fatigue', label: 'surcharge', re: /(débordé|pas le temps|surcharg|épuis|je suis bloqu)/i },
-];
-
-/** Signaux faibles dans le langage des commentaires. */
-function commentSignals(snap) {
-  const hits = FRICTION.map((f) => ({ ...f, comments: snap.comments.filter((c) => f.re.test(c.text)) })).filter((f) => f.comments.length >= 2);
-  if (!hits.length) return [];
-  const total = sum(hits, (h) => h.comments.length);
-  return [signal({
-    type: 'comment_signals', theme: 'team',
-    severity: 0.2 + 0.05 * total,
-    title: `Signaux faibles dans les commentaires : ${hits.map((h) => h.label).join(', ')}`,
-    narrative: `${total} commentaires expriment ${hits.map((h) => `${h.label} (${h.comments.length})`).join(', ')}. Ce ton n’apparaît pas forcément dans les statuts.`,
-    evidence: hits.flatMap((h) => h.comments.slice(0, 3).map((c) => `${c.key} · ${c.date} · « ${c.text} »`)),
-    issues: [...new Set(hits.flatMap((h) => h.comments.map((c) => c.key)))],
-    question: 'Ce que disent les commentaires correspond-il à ce que nous disons en Daily ?',
-    recommendation: { text: 'Faire émerger ces irritants en rétrospective plutôt que de les laisser dans les tickets.', owner: 'Scrum Master' },
-  })];
-}
-
 const words = (t) => new Set(t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).filter((w) => w.length > 3));
 export function similar(a, b) {
   const A = words(a);
@@ -515,7 +490,7 @@ function stakeholderFeedback(snap) {
 
 export const DETECTORS = [
   stuckIssues, blockers, dependencyBottleneck, recurringDependency, wipOverload, scopeChange, requirementChurn,
-  velocityTrend, overcommitment, forecast, carryover, featureGaps, estimationGap, endLoading, quality, concentration, commentSignals,
+  velocityTrend, overcommitment, forecast, carryover, featureGaps, estimationGap, endLoading, quality, concentration,
   retroFollowThrough, stakeholderFeedback,
 ];
 

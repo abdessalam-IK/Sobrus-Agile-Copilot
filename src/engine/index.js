@@ -10,7 +10,7 @@ import { learn } from './learn.js';
  * Analyse un sprint à une date donnée.
  * Les sprints précédents sont analysés à leur date de fin pour constituer l'historique.
  */
-export function analyze(dataset, sprintId, { asOf, feedback = {} } = {}) {
+export function analyze(dataset, sprintId, { asOf } = {}) {
   const idx = dataset.sprints.findIndex((s) => s.id === sprintId);
   if (idx < 0) throw new Error(`Sprint inconnu : ${sprintId}`);
 
@@ -20,12 +20,12 @@ export function analyze(dataset, sprintId, { asOf, feedback = {} } = {}) {
     const snap = observeSprint(dataset, s.id, k === idx ? asOf : undefined);
     const previous = history.filter((h) => h.snap.closed).map((h) => h.snap);
     const signals = understand(snap, { previous, dataset });
-    const thought = think(snap, signals, { feedback });
+    const thought = think(snap, signals);
     history.push({ snap, signals, thought });
   }
 
   const { snap, thought } = history.at(-1);
-  const learned = learn(history, { feedback, dataset });
+  const learned = learn(history);
   const prepared = prepare(snap, thought, history, dataset);
   const report = reportMarkdown({ snap, thought, prepared, learned });
 

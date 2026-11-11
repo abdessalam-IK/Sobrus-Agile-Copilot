@@ -61,7 +61,6 @@ button { font: inherit; cursor: pointer; }
 .controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
 .field { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
 .field select { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; min-width: 200px; }
-.field.slider input { width: 220px; accent-color: var(--brand); }
 .ai-badge { padding: 4px 10px; border-radius: 999px; font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
 .ai-badge.on { background: var(--brand-soft); color: var(--brand); border-color: transparent; }
 
@@ -149,10 +148,6 @@ main { max-width: 1320px; margin: 0 auto; padding: 20px 24px 40px; }
 .signal ul { margin: 6px 0 0; padding-left: 18px; }
 .question { background: var(--brand-soft); color: var(--text); border-radius: 8px; padding: 8px 10px; margin-top: 8px; font-size: 13px; }
 .question::before { content: '? '; font-weight: 700; color: var(--brand); }
-.feedback { display: flex; gap: 4px; flex-shrink: 0; }
-.feedback button { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 2px 8px; font-size: 13px; }
-.feedback button:hover { border-color: var(--brand); }
-.feedback button.done { background: var(--brand-soft); border-color: var(--brand); }
 .insight { border-left: 4px solid var(--border); }
 .insight.critical { border-left-color: var(--critical); }
 .insight.attention { border-left-color: var(--attention); }

@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "generate": "node data/generate.js",
+    "generate": "node test/fixtures/generate.js",
     "report": "node cli.js report",
     "test": "node --test",
     "sync": "node scripts/sync-linear.js",

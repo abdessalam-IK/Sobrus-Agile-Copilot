@@ -7,16 +7,16 @@ const r1 = (x) => (x == null ? '—' : String(Math.round(x * 10) / 10).replace('
 const r2 = (x) => (x == null ? '—' : String(Math.round(x * 100) / 100).replace('.', ','));
 const dm = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '');
 
-const state = { summary: null, config: null, sprintId: null, asOf: null, maxDay: {}, data: null, tab: 'overview', ai: {}, voted: new Set() };
+const state = { summary: null, config: null, sprintId: null, asOf: null, data: null, tab: 'overview', ai: {} };
 
 // Un seul menu, dans l'ordre où l'on en a besoin au fil du sprint.
 const PAGES = [
   { id: 'overview', group: 'Pendant le sprint', label: 'Vue d’ensemble', sub: 'L’essentiel en 30 secondes', intro: 'Ce que le Copilot retient du sprint : les signaux qui méritent votre attention, ce qu’ils racontent ensemble et les pistes d’action. Commencez toujours par ici.' },
   { id: 'daily', group: 'Pendant le sprint', label: 'Daily', sub: 'Préparer le point du jour', intro: 'À ouvrir 5 minutes avant le Daily : ce qui a bougé depuis hier, ce qui est bloqué ou immobile, et les questions à poser à l’équipe.' },
   { id: 'sprint', group: 'Pendant le sprint', label: 'Sprint', sub: 'Board, burndown, charge', intro: 'Les données du sprint telles que le Copilot les lit dans Linear : indicateurs, board, burndown et charge par personne.' },
-  { id: 'signals', group: 'Pendant le sprint', label: 'Signaux & risques', sub: 'Le détail, avec les preuves', intro: 'Chaque signal détecté, avec ses preuves, puis le registre des risques. Votez 👍 ou 👎 : le Copilot apprend ce qui vous est utile.' },
-  { id: 'review', group: 'Fin de sprint', label: 'Sprint Review', sub: 'Préparer la démo', intro: 'Ce qui est livré, ce qui ne l’est pas et pourquoi, l’ordre de démo et les questions pour les parties prenantes.' },
-  { id: 'retro', group: 'Fin de sprint', label: 'Rétrospective', sub: 'Préparer l’atelier', intro: 'Un format adapté à ce sprint, la chronologie des événements, les données à montrer et le suivi des actions précédentes.' },
+  { id: 'signals', group: 'Pendant le sprint', label: 'Signaux', sub: 'Le détail, avec les preuves', intro: 'Chaque signal détecté, avec ses preuves (tickets, dates, chiffres) et la question à poser à l’équipe.' },
+  { id: 'review', group: 'Fin de sprint', label: 'Sprint Review', sub: 'Préparer la démo', intro: 'L’objectif du sprint, ce qui est livré, ce qui ne l’est pas et pourquoi, et les messages clés à partager.' },
+  { id: 'retro', group: 'Fin de sprint', label: 'Rétrospective', sub: 'Préparer l’atelier', intro: 'Les données à montrer, la chronologie des événements, les questions à poser et le suivi des actions précédentes.' },
   { id: 'planning', group: 'Fin de sprint', label: 'Prochain Planning', sub: 'Capacité et points à challenger', intro: 'La capacité du prochain sprint (congés et jours fériés inclus), une fourchette d’engagement réaliste et les tickets à challenger.' },
   { id: 'trends', group: 'Prendre du recul', label: 'Tendances', sub: 'Ce qui change de sprint en sprint', intro: 'La comparaison des sprints : qu’est-ce qui est en train de changer dans votre manière de travailler ?' },
   { id: 'report', group: 'Prendre du recul', label: 'Rapport', sub: 'Exporter en Markdown', intro: 'Le rapport complet du sprint, à copier ou à télécharger.' },
@@ -61,8 +61,6 @@ async function init() {
   state.sprintId = (sprints.find((s) => s.status === 'active') || sprints.at(-1)).id;
   sel.value = state.sprintId;
   sel.addEventListener('change', () => { state.sprintId = sel.value; state.asOf = null; load(); });
-  $('#day-slider').addEventListener('input', (e) => { $('#day-label').textContent = `${e.target.value}/${state.data.observe.totalDays}`; });
-  $('#day-slider').addEventListener('change', (e) => { state.asOf = state.data.observe.days[Number(e.target.value) - 1]; load(); });
   await load();
 }
 
@@ -106,12 +104,6 @@ async function syncNow() {
 async function load() {
   const q = state.asOf ? `?asOf=${state.asOf}` : '';
   state.data = await api(`/api/analysis/${state.sprintId}${q}`);
-  const o = state.data.observe;
-  if (!state.asOf) state.maxDay[state.sprintId] = o.dayIndex;
-  const slider = $('#day-slider');
-  slider.max = state.maxDay[state.sprintId] || o.totalDays;
-  slider.value = o.dayIndex;
-  $('#day-label').textContent = `${o.dayIndex}/${o.totalDays}`;
   render();
 }
 
@@ -127,9 +119,9 @@ function render() {
     daily: () => prepDaily(p.daily) + aiBox('daily', 'Rédiger la note du Daily avec Claude'),
     sprint: viewObserve,
     signals: viewSignals,
-    review: () => prepReview(p.review) + aiBox('review', 'Rédiger le déroulé de la Review avec Claude'),
-    retro: () => prepRetro(p.retro) + aiBox('retro', 'Rédiger le déroulé de la Rétro avec Claude'),
-    planning: () => prepPlanning(p.planning) + aiBox('planning', 'Rédiger la préparation du Planning avec Claude'),
+    review: () => prepReview(p.review) + aiBox('bilan', 'Rédiger le bilan de fin de sprint avec Claude (Review, Rétro, Planning)'),
+    retro: () => prepRetro(p.retro) + aiBox('bilan', 'Rédiger le bilan de fin de sprint avec Claude (Review, Rétro, Planning)'),
+    planning: () => prepPlanning(p.planning) + aiBox('bilan', 'Rédiger le bilan de fin de sprint avec Claude (Review, Rétro, Planning)'),
     trends: viewLearn,
     report: viewReport,
   };
@@ -356,19 +348,14 @@ function viewObserve() {
 }
 
 // ---------------------------------------------------------------------------
-// Page « Signaux & risques »
+// Page « Signaux »
 // ---------------------------------------------------------------------------
 function signalCard(s) {
-  const voted = state.voted.has(s.type);
   return `<div class="signal">
     <div class="signal-head">
       <div>
         <span class="level ${s.level.id}">${s.level.label}</span>
         <span class="signal-title">${esc(s.title)}</span>
-      </div>
-      <div class="feedback" title="Ce signal vous est-il utile ? Le Copilot apprend de vos retours.">
-        <button data-vote="1" data-type="${s.type}" class="${voted ? 'done' : ''}" aria-label="Utile">👍</button>
-        <button data-vote="0" data-type="${s.type}" aria-label="Pas utile">👎</button>
       </div>
     </div>
     <div class="sev"><span style="width:${s.severity * 100}%;background:${LEVEL_COLOR[s.level.id]}"></span></div>
@@ -376,23 +363,17 @@ function signalCard(s) {
     ${s.evidence.length ? `<details><summary>Preuves (${s.evidence.length})</summary><ul>${s.evidence.map((e) => `<li>${esc(e)}</li>`).join('')}</ul></details>` : ''}
     ${s.hypotheses?.length ? `<details><summary>Hypothèses à vérifier</summary><ul>${s.hypotheses.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></details>` : ''}
     <div class="question">${esc(s.question)}</div>
-    <div class="small muted" style="margin-top:6px">Détecteur : <code>${s.type}</code> · sévérité ${r2(s.severity)}${s.weight !== 1 ? ` · pondération apprise ×${r2(s.weight)}` : ''}</div>
+    <div class="small muted" style="margin-top:6px">Détecteur : <code>${s.type}</code> · sévérité ${r2(s.severity)}</div>
   </div>`;
 }
 
 function viewSignals() {
-  const { think: t, prepare: p, observe: o } = state.data;
-  const risks = `
-    <div class="section-title" id="risks"><h2>Registre des risques</h2>${o.forecast ? `<span class="muted small">Prévision : ~${Math.round(o.forecast.expected)} ${o.forecast.unit} terminables (fourchette ${Math.round(o.forecast.p15)}–${Math.round(o.forecast.p85)}) pour ${o.forecast.remaining} restants</span>` : ''}</div>
-    <div class="card"><table><thead><tr><th>Risque</th><th>Probabilité</th><th>Impact</th><th>Mitigation proposée</th><th>Porteur</th></tr></thead><tbody>
-      ${p.risks.map((r) => `<tr><td>${esc(r.title)}</td><td><span class="level ${r.probability === 'Élevée' ? 'critical' : r.probability === 'Moyenne' ? 'attention' : 'watch'}">${r.probability}</span></td><td>${r.impact}</td><td class="small">${esc(r.mitigation)}</td><td class="small">${esc(r.owner)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Aucun risque significatif.</td></tr>'}
-    </tbody></table></div>
-`;
-  if (!t.signals.length) return '<div class="card"><h2>Aucun signal détecté</h2><p class="muted">Le flux est régulier, sans blocage ni dérive notable.</p></div>' + risks;
+  const { think: t, observe: o } = state.data;
+  const forecast = o.forecast ? `<span class="muted small">Prévision : ~${Math.round(o.forecast.expected)} ${o.forecast.unit} terminables (fourchette ${Math.round(o.forecast.p15)}–${Math.round(o.forecast.p85)}) pour ${o.forecast.remaining} restants</span>` : '';
+  if (!t.signals.length) return '<div class="card"><h2>Aucun signal détecté</h2><p class="muted">Le flux est régulier, sans blocage ni dérive notable.</p></div>';
   return `
-    <div class="section-title"><h2>Signaux détectés</h2><span class="muted small">${t.signals.length} signaux · triés par importance</span></div>
-    <div class="grid cols-2">${[0, 1].map((col) => `<div>${t.signals.filter((_, i) => i % 2 === col).map(signalCard).join('')}</div>`).join('')}</div>
-    ${risks}`;
+    <div class="section-title"><h2>Signaux détectés</h2>${forecast || `<span class="muted small">${t.signals.length} signaux · triés par importance</span>`}</div>
+    <div class="grid cols-2">${[0, 1].map((col) => `<div>${t.signals.filter((_, i) => i % 2 === col).map(signalCard).join('')}</div>`).join('')}</div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -412,8 +393,7 @@ function viewOverview() {
     <div class="section-title"><h2>Recommandations</h2><span class="muted small">Propositions à discuter — l’équipe décide</span></div>
     <div class="card"><table><thead><tr><th>Proposition</th><th>Pour qui</th><th>Parce que</th></tr></thead><tbody>
       ${t.recommendations.map((r) => `<tr><td>${esc(r.text)}</td><td class="small">${esc(r.owner)}</td><td class="small muted">${esc(r.because)}</td></tr>`).join('') || '<tr><td colspan="3" class="empty">—</td></tr>'}
-    </tbody></table></div>
-    ${aiBox('insights', 'Approfondir les insights avec Claude')}`;
+    </tbody></table></div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -442,8 +422,6 @@ function prepReview(r) {
   <div class="grid cols-2">
     <div class="card"><h3>Objectif : ${esc(r.goalStatus)}</h3><p class="muted">${esc(r.goal)} — ${esc(r.goalDetail)}</p>
       <h4>Messages clés</h4>${list(r.keyMessages.map(esc))}
-      <h4>Ordre de démo suggéré</h4>${list(r.demo.map((d, i) => `${i + 1}. <b>${esc(d.key)}</b> ${esc(d.title)} — ${esc(d.presenter)}`))}
-      <h4>Questions pour les parties prenantes</h4>${r.questionsForStakeholders.map((q) => `<div class="question">${esc(q)}</div>`).join('')}
     </div>
     <div class="card"><h3>Livré</h3>${r.delivered.map((e) => `<p><b>${esc(e.epic)}</b> · ${e.points} pts</p>${list(e.items.map((i) => `${esc(i.key)} ${esc(i.title)}${i.goal ? ' <span class="tag brand">objectif</span>' : ''}`))}`).join('') || '<p class="empty">Rien de terminé.</p>'}
       <h3>Non livré — et pourquoi</h3>${list(r.notDelivered.map((i) => `<b>${esc(i.key)}</b> ${esc(i.title)} <span class="muted">— ${esc(i.reason)}</span>`), 'Tout est livré.')}
@@ -454,11 +432,9 @@ function prepReview(r) {
 function prepRetro(r) {
   return `${r.anticipated ? '<p class="tag orange" style="display:inline-block;margin-bottom:10px">Préparation anticipée : le sprint est encore en cours</p>' : ''}
   <div class="grid cols-2">
-    <div class="card"><h3>Format suggéré : ${esc(r.format.name)}</h3><p class="muted">Parce que ${esc(r.format.why)}</p>
-      <h4>Données à montrer</h4><div class="kpis">${r.dataCards.map((c) => kpi(c.label, esc(c.value))).join('')}</div>
+    <div class="card"><h3>Données à montrer</h3><div class="kpis">${r.dataCards.map((c) => kpi(c.label, esc(c.value))).join('')}</div>
       <h4 style="margin-top:12px">Questions pour l’équipe</h4>${r.questions.map((q) => `<div class="question">${esc(q)}</div>`).join('')}
       <h4 style="margin-top:12px">Expériences possibles</h4>${list(r.experiments.map((e) => `${esc(e.hypothesis)} <span class="muted">(${esc(e.owner)})</span>`))}
-      <h4>Notes de facilitation</h4>${list(r.facilitationNotes.map(esc))}
     </div>
     <div class="card"><h3>Suivi des actions de la rétro précédente</h3>
       ${list(r.previousActions.map((a) => `${esc(a.text)} — ${esc(a.owner)} <span class="tag ${a.status === 'done' ? 'green' : a.status === 'in_progress' ? 'orange' : 'red'}">${a.status === 'done' ? 'réalisée' : a.status === 'in_progress' ? 'en cours' : 'non démarrée'}</span>`), 'Aucune action précédente.')}
@@ -527,13 +503,9 @@ function viewLearn() {
         return `<tr><td>${esc(m.label)}</td>${closedSeries.map((s) => `<td class="num">${fmtMetric(s.metrics[m.key], m.format)}</td>`).join('')}<td>${spark(closedSeries.map((s) => s.metrics[m.key]), m.better)}</td><td>${label}</td></tr>`;
       }).join('')}
     </tbody></table></div>
-    <div class="grid cols-2" style="margin-top:16px">
+    <div style="margin-top:16px">
       <div class="card"><h3>Patterns persistants</h3>${list(l.patterns.map((p) => `<b>${esc(p.title)}</b><br><span class="muted">${esc(p.detail)}</span>`), 'Aucun pattern récurrent pour l’instant.')}</div>
-      <div class="card"><h3>Mémoire d’apprentissage</h3><p class="small muted">Ce que l’équipe a jugé utile ou non : le poids de chaque type de signal s’ajuste (×0,5 à ×1,5).</p>
-        ${l.learningMemory.length ? `<table><thead><tr><th>Signal</th><th class="num">👍</th><th class="num">👎</th><th class="num">Poids</th></tr></thead><tbody>${l.learningMemory.map((x) => `<tr><td><code>${esc(x.type)}</code></td><td class="num">${x.useful}</td><td class="num">${x.notUseful}</td><td class="num">×${r2(x.weight)}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">Aucun retour encore. Votez 👍/👎 sur les signaux de l’onglet « Comprendre ».</p>'}
-      </div>
-    </div>
-    ${aiBox('learn', 'Analyser l’évolution de l’équipe avec Claude')}`;
+    </div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -599,12 +571,6 @@ function md(src) {
 function bindView() {
   const view = $('#view');
   view.querySelectorAll('[data-ai]').forEach((b) => b.addEventListener('click', () => runAi(b.dataset.ai)));
-  view.querySelectorAll('[data-vote]').forEach((b) => b.addEventListener('click', async () => {
-    const useful = b.dataset.vote === '1';
-    await api('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ signalType: b.dataset.type, useful, sprintId: state.sprintId }) });
-    state.voted.add(b.dataset.type);
-    await load();
-  }));
   $('#copy-report')?.addEventListener('click', async (e) => {
     await navigator.clipboard.writeText(state.data.report);
     e.target.textContent = 'Copié ✓';

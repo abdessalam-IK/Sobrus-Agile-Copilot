@@ -1,8 +1,6 @@
 // 03 — THINK
 // Relie les signaux entre eux et produit des insights lisibles :
 // « Ce Sprint présente trois signaux nécessitant une attention particulière. »
-// La pondération tient compte du feedback humain (brique LEARN) : un type de signal
-// jugé peu utile par l'équipe pèse moins lourd, un signal jugé utile pèse davantage.
 
 import { THEMES } from './understand.js';
 import { round, clamp01, pct } from '../lib/stats.js';
@@ -14,14 +12,6 @@ const LEVELS = [
   { min: 0, id: 'info', label: 'Info' },
 ];
 export const levelOf = (s) => LEVELS.find((l) => s >= l.min);
-
-/** Poids appris à partir des retours 👍/👎 sur chaque type de signal. */
-export function feedbackWeight(feedback, type) {
-  const f = feedback?.[type];
-  if (!f) return 1;
-  const ratio = (f.useful + 1) / (f.useful + f.notUseful + 2); // lissage de Laplace
-  return round(0.5 + ratio, 2); // 0.5 … 1.5
-}
 
 /** Lecture transverse : quand plusieurs thèmes se combinent, le sens change. */
 function crossReadings(byTheme, signals) {
@@ -84,13 +74,9 @@ function computeHealth(snap, signals) {
   };
 }
 
-export function think(snap, rawSignals, { feedback } = {}) {
+export function think(snap, rawSignals) {
   const signals = rawSignals
-    .map((s) => {
-      const weight = feedbackWeight(feedback, s.type);
-      const severity = round(clamp01(s.severity * weight), 2);
-      return { ...s, weight, severity, level: levelOf(severity) };
-    })
+    .map((s) => ({ ...s, level: levelOf(s.severity) }))
     .sort((a, b) => b.severity - a.severity);
 
   const byTheme = new Map();
