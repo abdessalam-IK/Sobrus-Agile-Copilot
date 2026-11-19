@@ -68,7 +68,7 @@ async function init() {
   }
   $('#sync-btn').addEventListener('click', syncNow);
   setInterval(refreshSyncLabel, 60e3); // l'âge des données avance chaque minute
-  setInterval(watchFreshData, 5 * 60e3); // nouvelles données côté serveur → rechargement
+  setInterval(watchFreshData, 60e3); // nouvelles données côté serveur → rechargement
 
   // Vue Sobrus par défaut ; sinon le dernier projet ouvert dans ce navigateur
   let saved = null;

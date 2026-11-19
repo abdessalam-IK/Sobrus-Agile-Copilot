@@ -1,0 +1,11 @@
+# Jamais envoyé à Vercel
+.env
+.env.*
+.git
+node_modules
+.claude
+test
+docs
+data/feedback.json
+data/private/pptx
+data/private/linear-discovery.json

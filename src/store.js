@@ -1,6 +1,6 @@
 // Chargement des données synchronisées depuis Linear (et les Sheets), un fichier par équipe.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +17,16 @@ export const TEAMS = (process.env.LINEAR_TEAMS || 'SUPP,CEN')
 export const DATA_DIR = process.env.COPILOT_DATA_DIR || (process.env.VERCEL ? '/tmp/copilot' : path.join(root, 'data/private'));
 
 export const teamFile = (team) => path.join(DATA_DIR, `linear-${team.toLowerCase()}.json`);
+
+// Sur Vercel : les données livrées avec le déploiement (data/private, en lecture seule) servent de point de départ ;
+// les synchronisations Linear suivantes écrivent dans /tmp.
+if (process.env.VERCEL) {
+  mkdirSync(DATA_DIR, { recursive: true });
+  for (const team of TEAMS) {
+    const bundled = path.join(root, `data/private/linear-${team.toLowerCase()}.json`);
+    if (existsSync(bundled) && !existsSync(teamFile(team))) copyFileSync(bundled, teamFile(team));
+  }
+}
 
 /** Équipes déjà synchronisées (leur fichier existe). */
 export const availableTeams = () => TEAMS.filter((t) => existsSync(teamFile(t)));

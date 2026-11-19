@@ -98,12 +98,8 @@ async function prepareOnlineData() {
 async function route(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
-  // Connexion Google (version en ligne uniquement)
+  // Connexion Google, uniquement si GOOGLE_CLIENT_ID est défini (sinon le lien est ouvert)
   let user = null;
-  if (ONLINE && !authEnabled()) {
-    // En ligne sans connexion configurée : on ferme tout plutôt que d'exposer les données
-    return send(res, 503, 'Sobrus AI Copilot : connexion Google non configurée (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET).', 'text/plain; charset=utf-8');
-  }
   if (authEnabled()) {
     if (url.pathname.startsWith('/auth/') && (await handleAuth(req, res, url))) return;
     user = currentUser(req);
