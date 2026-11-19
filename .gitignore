@@ -17,3 +17,6 @@ data/linear*.json
 # Vercel
 .vercel/
 vercel-static/
+
+.vercel
+.env*

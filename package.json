@@ -11,7 +11,8 @@
     "test": "node --test",
     "sync": "node scripts/sync-linear.js",
     "discover": "node scripts/linear-discover.js",
-    "cloud:push": "node scripts/cloud-push.js"
+    "cloud:push": "node scripts/cloud-push.js",
+    "deploy": "npx.cmd -y vercel@latest deploy --prod --yes"
   },
   "engines": {
     "node": ">=20"
