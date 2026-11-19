@@ -163,3 +163,28 @@ test('OBJECTIFS : répartition de l’effort et fin prévisible des projets', as
   assert.ok(p.alerts.includes('Date cible dépassée'));
   assert.ok(p.alerts.some((x) => /Statut Linear « Backlog »/.test(x)));
 });
+
+test('LINEAR : un report = un sprint précédent où le ticket est resté au moins 24 h', async () => {
+  const { previousCycles } = await import('../src/adapters/linear.js');
+  const h = (t, from, to) => ({ createdAt: t, fromCycleId: from, toCycleId: to });
+  const start = Date.parse('2026-11-17T23:00:00Z');
+  // Allers-retours manuels entre deux cycles : un seul report
+  assert.deepEqual(previousCycles([h('2026-11-16T11:19:00Z', 'N1', 'N2'), h('2026-11-17T10:28:00Z', 'N2', 'N1'), h('2026-11-17T17:34:00Z', 'N1', 'N2')], '2026-11-13T09:00:00Z', 'N2', start), ['N1']);
+  // Créé la veille et basculé le jour même : pas un report
+  assert.deepEqual(previousCycles([h('2026-11-17T17:04:00Z', 'N1', 'N2')], '2026-11-17T15:00:00Z', 'N2', start), []);
+  // Deux sprints complets avant celui-ci : deux reports
+  assert.deepEqual(previousCycles([h('2026-11-03T23:00:00Z', 'O2', 'N1'), h('2026-11-17T23:00:00Z', 'N1', 'N2')], '2026-10-21T09:00:00Z', 'N2', start), ['O2', 'N1']);
+});
+
+test('UNDERSTAND : la liste des tickets d’un signal correspond au nombre annoncé', () => {
+  const ds = tiny([
+    issue({ key: 'R-1', carriedOver: 1 }),
+    issue({ key: 'R-2', carriedOver: 2 }),
+    issue({ key: 'R-3', carriedOver: 1, history: [{ date: '2026-01-06', to: 'done' }] }),
+    issue({ key: 'N-1' }),
+  ]);
+  const carry = analyze(ds, 'T1').think.signals.find((s) => s.type === 'carryover');
+  assert.match(carry.title, /^3 tickets reportés d’un sprint précédent, dont 1 depuis au moins 2 sprints/);
+  assert.equal(carry.issues.length, 3);
+  assert.equal(carry.notes['R-2'], 'reporté 2 fois');
+});

@@ -23,10 +23,17 @@ const pts = (i) => i.points || 0;
 const keys = (issues) => issues.map((i) => i.key);
 const plural = (n, word, pluralWord = `${word}s`) => `${n} ${n > 1 ? pluralWord : word}`;
 
+/**
+ * Un signal. `issues` = les tickets du sprint concernés : leur nombre doit correspondre à ce qu'annonce le
+ * titre. `notes` = une précision par ticket (« reporté 2 fois », « ajouté le 12/11 »…). `rows` = tickets
+ * hors du sprint (ex. sous-tickets non planifiés), décrits directement.
+ */
 function signal(s) {
   return {
     evidence: [],
     issues: [],
+    notes: {},
+    rows: [],
     hypotheses: [],
     ...s,
     severity: round(clamp01(s.severity), 2),
@@ -53,6 +60,7 @@ function agingWipSignal(snap, ctx, names) {
     narrative: `D’habitude, la moitié des tickets se terminent en ${th.p50} jour${th.p50 > 1 ? 's' : ''} ouvré${th.p50 > 1 ? 's' : ''} et 85 % en ${th.p85} jours${th.fallback ? ' (seuils par défaut : pas encore assez d’historique)' : ` (calculé sur ${th.basedOn} tickets terminés)`}. Au-delà, un ticket risque fort de déborder du sprint.`,
     evidence: risky.map((i) => `${i.key} — en cours depuis ${i.age} j${i.blocked ? ' (bloqué)' : ''} (${names(i.assignee)}) — ${i.title}`),
     issues: risky.map((i) => i.key),
+    notes: Object.fromEntries(risky.map((i) => [i.key, `en cours depuis ${i.age} j`])),
     question: 'Qu’est-ce qui empêche ces tickets de se terminer ? Faut-il les découper, aider la personne, ou lever un blocage non dit ?',
     recommendation: { text: 'Traiter les tickets les plus âgés en début de Daily, avant d’en démarrer de nouveaux.', owner: 'Équipe' },
   })];
@@ -71,6 +79,7 @@ function blockers(snap) {
       narrative: `Des tickets${now.some((i) => i.goal) ? ' liés à l’objectif du sprint' : ''} sont bloqués depuis ${Math.max(...now.map((i) => i.blockedDays))} jours au plus.`,
       evidence: now.map((i) => `${i.key} — bloqué depuis ${i.blockedDays} j : ${i.currentBlock?.reason || 'raison non précisée'}${i.currentBlock?.dependency ? ` [${i.currentBlock.dependency}]` : ''}`),
       issues: keys(now),
+      notes: Object.fromEntries(now.map((i) => [i.key, `bloqué depuis ${i.blockedDays} j${i.currentBlock?.reason ? ` : ${i.currentBlock.reason.replace(/^Label « (.*) »$/, '$1')}` : ''}`])),
       question: 'Quelle est la prochaine action concrète pour lever chaque blocage, et qui la porte ?',
       recommendation: { text: 'Nommer un responsable et une échéance pour chaque blocage ; escalader au-delà de 48h.', owner: 'Scrum Master' },
     }));
@@ -190,6 +199,7 @@ function scopeChange(snap) {
     narrative: `${plural(added.length, 'ticket est entré', 'tickets sont entrés')} dans le sprint après le Planning, soit ${pct(m.unplannedRatio)} des tickets du sprint. Origine : ${origins.map((o) => `${o.origin.toLowerCase()} (${o.count})`).join(', ')}.`,
     evidence: added.map((i) => `${i.key} (${i.points != null ? `+${i.points} pts` : 'non estimé'}, ajouté le ${i.addedDate}, ${originOf(i).toLowerCase()}) — ${i.title}`),
     issues: keys(added),
+    notes: Object.fromEntries(added.map((i) => [i.key, `ajouté le ${i.addedDate.slice(8, 10)}/${i.addedDate.slice(5, 7)}${originOf(i).includes('non précisée') ? '' : ` · ${originOf(i).toLowerCase()}`}`])),
     question: 'Ces ajouts étaient-ils réellement urgents ? Qu’avons-nous retiré en échange ?',
     recommendation: { text: 'Prévoir un buffer explicite pour les urgences et rendre visible le « troc » (un ajout = un retrait).', owner: 'Product Owner' },
   })];
@@ -272,6 +282,7 @@ function forecast(snap, ctx) {
         `Simulation Monte Carlo (${runs} tirages) sur le débit quotidien historique, corrigé de la capacité restante`,
         ...(unit === 'tickets' ? [`Calcul en nombre de tickets : ${m.openUnestimated} des ${m.openCount} tickets restants ne sont pas estimés`] : []),
       ],
+      issues: keys(snap.issues.filter((i) => !i.done)),
       question: 'Si nous ne pouvons pas tout finir, que devons-nous absolument finir ?',
       recommendation: { text: 'Négocier dès maintenant avec le PO ce qui sort du sprint, plutôt que de le constater à la Review.', owner: 'Product Owner + Équipe' },
     }));
@@ -296,13 +307,17 @@ function carryover(snap) {
   const carried = snap.issues.filter((i) => i.carriedOver > 0);
   if (!carried.length) return [];
   const zombies = carried.filter((i) => i.carriedOver >= 2);
+  const ordered = [...zombies, ...carried.filter((i) => i.carriedOver < 2)];
   return [signal({
     type: 'carryover', theme: 'predictability',
-    severity: 0.2 + 0.08 * carried.length + 0.25 * zombies.length,
-    title: zombies.length ? `${plural(zombies.length, 'ticket « zombie »', 'tickets « zombies »')} reporté${zombies.length > 1 ? 's' : ''} depuis 2 sprints ou plus` : `${plural(carried.length, 'ticket reporté', 'tickets reportés')} du sprint précédent`,
-    narrative: `${snap.metrics.carryoverPoints} points viennent de sprints précédents. Un report répété signale souvent un ticket trop gros, mal compris ou bloqué.`,
-    evidence: carried.map((i) => `${i.key} — reporté ${i.carriedOver} fois — ${STATUS_LABELS[i.status]} — ${i.title}`),
-    issues: keys(carried),
+    severity: 0.2 + 0.05 * carried.length + 0.25 * zombies.length,
+    title: `${plural(carried.length, 'ticket reporté', 'tickets reportés')} d’un sprint précédent${zombies.length ? `, dont ${zombies.length} depuis au moins 2 sprints` : ''}`,
+    narrative: zombies.length
+      ? 'Ces tickets n’ont pas été terminés au sprint précédent. Ceux reportés plusieurs fois sont souvent trop gros, mal compris ou bloqués.'
+      : 'Ces tickets n’ont pas été terminés au sprint précédent et ont été repris dans celui-ci.',
+    evidence: ordered.map((i) => `${i.key} — reporté ${i.carriedOver} fois — ${STATUS_LABELS[i.status]} — ${i.title}`),
+    issues: keys(ordered),
+    notes: Object.fromEntries(ordered.map((i) => [i.key, i.carriedOver >= 2 ? `reporté ${i.carriedOver} fois` : 'reporté 1 fois'])),
     question: zombies.length ? 'Ce ticket a-t-il encore de la valeur sous sa forme actuelle ? Faut-il le découper ou le reformuler ?' : 'Pourquoi ces tickets n’ont-ils pas été terminés au sprint précédent ?',
     recommendation: { text: 'Re-découper les tickets reportés plus d’une fois avant de les replanifier.', owner: 'Product Owner + Équipe' },
   })];
@@ -338,7 +353,7 @@ function featureGaps(snap) {
     title: `${plural(blocked.length, 'fonctionnalité ne peut', 'fonctionnalités ne peuvent')} pas se terminer ce sprint : ${missing} sous-ticket${missing > 1 ? 's' : ''} hors du cycle`,
     narrative: 'Un ticket parent n’est terminé que lorsque tous ses sous-tickets le sont. Or certains sous-tickets ne sont planifiés dans aucun cycle (ou dans un autre) : la fonctionnalité restera ouverte quoi que fasse l’équipe.',
     evidence: blocked.map((f) => `${f.key} « ${f.title} » — ${f.done}/${f.total} sous-tickets terminés, hors cycle : ${f.outside.map((o) => `${o.key} (${o.state})`).join(', ')}`),
-    issues: blocked.map((f) => f.key),
+    rows: blocked.flatMap((f) => f.outside.map((o) => ({ key: o.key, title: o.title, status: o.state, note: `sous-ticket de ${f.key}, planifié hors de ce sprint` }))),
     question: 'Ces sous-tickets doivent-ils entrer dans ce sprint, être découpés dans une autre fonctionnalité, ou la fonctionnalité doit-elle être replanifiée ?',
     recommendation: { text: 'Au Planning, vérifier que chaque ticket parent engagé a tous ses sous-tickets dans le cycle.', owner: 'Product Owner' },
   })];
@@ -349,13 +364,14 @@ function estimationGap(snap) {
   const missing = snap.issues.filter((i) => i.points == null);
   const ratio = missing.length / Math.max(1, snap.issues.length);
   if (ratio < 0.25 || missing.length < 3) return [];
+  const open = missing.filter((i) => !i.done);
   return [signal({
     type: 'estimation_gap', theme: 'predictability',
     severity: 0.15 + ratio * 0.6,
-    title: `${pct(ratio)} des tickets ne sont pas estimés (${missing.length}/${snap.issues.length})`,
-    narrative: 'Les tickets sans estimation comptent pour zéro point : la vélocité, la capacité et les prévisions sous-estiment le travail réellement fait.',
-    evidence: missing.slice(0, 8).map((i) => `${i.key} — ${i.title}`),
-    issues: keys(missing),
+    title: `${missing.length} tickets sur ${snap.issues.length} ne sont pas estimés${open.length && open.length < missing.length ? `, dont ${open.length} pas encore terminés` : ''}`,
+    narrative: 'Un ticket sans estimation compte pour zéro point : l’avancement et les prévisions en points sous-estiment le travail réel.',
+    evidence: missing.map((i) => `${i.key} — ${STATUS_LABELS[i.status]} — ${i.title}`),
+    issues: keys([...open, ...missing.filter((i) => i.done)]),
     question: 'Ces tickets sont-ils trop petits pour être estimés, ou ont-ils été ajoutés sans passer par l’affinage ?',
     recommendation: { text: 'Estimer chaque ticket qui entre dans le cycle, même en cours de route (0 pour un ticket trivial).', owner: 'Équipe' },
   })];
@@ -424,6 +440,7 @@ function quality(snap, ctx) {
     narrative: `${reopened.length ? 'Des tickets « terminés » sont revenus : la Definition of Done ne protège pas complètement des régressions. ' : ''}${bugUp ? `Les bugs représentent ${pct(snap.metrics.bugRatio)} des tickets (moyenne historique ${pct(histBug)}).` : ''}`.trim(),
     evidence: reopened.map((i) => `${i.key} — ${i.title}${i.comments.filter((c) => /r[ée]gression|rouvert/i.test(c.text)).map((c) => ` « ${c.text} »`).join('')}`),
     issues: keys(reopened),
+    notes: Object.fromEntries(reopened.map((i) => [i.key, i.reopenCount > 1 ? `rouvert ${i.reopenCount} fois` : 'rouvert après « terminé »'])),
     question: 'Qu’est-ce qui a manqué dans nos tests pour détecter ces régressions avant le « Terminé » ?',
     recommendation: { text: 'Ajouter des tests de non-régression automatisés sur les zones rouvertes.', owner: 'Équipe + QA' },
   })];
@@ -445,6 +462,7 @@ function concentration(snap, ctx, names) {
       title: `${pct(share)} du travail restant repose sur une seule personne (${names(top.member)})`,
       narrative: `${names(top.member)} porte ${top.remainingPoints} des ${remaining} points restants : risque de goulot et de surcharge, et faible partage de connaissance.`,
       evidence: devLoad.map((l) => `${names(l.member)} : ${l.remainingPoints} pts restants, ${l.wip} en cours`),
+      issues: keys(snap.issues.filter((i) => i.assignee === top.member && !i.done)),
       question: `Qui pourrait reprendre ou faire en binôme une partie des tickets de ${names(top.member)} ?`,
       recommendation: { text: 'Organiser du pairing sur les sujets critiques pour répartir la charge et la connaissance.', owner: 'Équipe' },
     }));
@@ -558,6 +576,7 @@ function unlinkedWork(snap, ctx) {
     severity: 0.25 + (0.3 - linked),
     title: linked === 0 ? 'Aucun ticket livré n’est rattaché à un projet Linear' : `${pct(linked)} seulement du travail livré est rattaché à un projet Linear`,
     narrative: `${done.length - done.filter((i) => i.project).length} des ${done.length} tickets terminés ne sont reliés à aucun projet : impossible de dire quelle part du sprint sert les objectifs de Sobrus.`,
+    issues: keys(done.filter((i) => !i.project)),
     question: 'À quel objectif ces tickets contribuent-ils ? Faut-il les rattacher à un projet, ou sont-ils du support à rendre visible comme tel ?',
     recommendation: { text: 'Rattacher chaque ticket à un projet Linear (ou le marquer comme bug / support) dès sa création.', owner: 'Product Owner' },
   })];

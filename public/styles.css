@@ -274,3 +274,17 @@ ol.actions li { margin: 6px 0; }
 /* Un élément masqué reste masqué, quel que soit son display */
 [hidden] { display: none !important; }
 .big-number { font-size: 32px; font-weight: 700; margin: 4px 0 0; }
+
+/* Tickets d'un signal */
+details.tickets { margin: 8px 0; }
+details.tickets summary { cursor: pointer; color: var(--brand); font-size: 13px; font-weight: 600; }
+.ticket-table { margin-top: 6px; font-size: 12.5px; }
+.ticket-table td:first-child { max-width: 520px; }
+.st { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.st.todo { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+.st.progress { background: var(--brand-soft); color: var(--brand); }
+.st.blocked { background: var(--critical-soft); color: var(--critical); }
+.st.done { background: var(--ok-soft); color: var(--ok); }
+ul.watch { list-style: none; margin: 0; padding: 0; }
+ul.watch > li.watch-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+ul.watch > li.watch-item:last-child { border-bottom: 0; }

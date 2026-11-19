@@ -76,6 +76,26 @@ const cycleIssues = (connection) => `query($id: String!, $first: Int, $after: St
   cycle(id: $id) { ${connection}(first: $first, after: $after) { nodes { ${ISSUE_FIELDS} } pageInfo { hasNextPage endCursor } } }
 }`;
 
+/**
+ * Cycles précédents où un ticket a réellement séjourné (≥ 24 h cumulées) avant `untilTs`.
+ * On reconstitue les périodes d'appartenance à chaque cycle à partir des déplacements de l'historique.
+ */
+export function previousCycles(hist, createdAt, currentCycleId, untilTs) {
+  const moves = hist.filter((h) => h.fromCycleId || h.toCycleId);
+  const stays = new Map(); // cycle → durée cumulée (ms)
+  let cycleNow = moves.length && moves[0].fromCycleId ? moves[0].fromCycleId : null; // cycle à la création
+  let since = ms(createdAt);
+  for (const h of moves) {
+    const t = Math.min(ms(h.createdAt), untilTs);
+    if (cycleNow && cycleNow !== currentCycleId) stays.set(cycleNow, (stays.get(cycleNow) || 0) + Math.max(0, t - since));
+    if (ms(h.createdAt) > untilTs) return [...stays].filter(([, d]) => d >= 24 * HOUR).map(([c]) => c);
+    cycleNow = h.toCycleId || null;
+    since = t;
+  }
+  if (cycleNow && cycleNow !== currentCycleId) stays.set(cycleNow, (stays.get(cycleNow) || 0) + Math.max(0, untilTs - since));
+  return [...stays].filter(([, d]) => d >= 24 * HOUR).map(([c]) => c);
+}
+
 /** Transforme une issue Linear en issue du modèle Copilot, vue depuis un cycle donné. */
 export function buildIssue(raw, cycle, nowTs = Date.now()) {
   const startTs = ms(cycle.startsAt);
@@ -89,8 +109,9 @@ export function buildIssue(raw, cycle, nowTs = Date.now()) {
   const addedTs = enteredTs > startTs + 2 * HOUR ? enteredTs : startTs;
   const exit = hist.find((h) => h.fromCycleId === cycle.id && h.toCycleId !== cycle.id && ms(h.createdAt) > addedTs && ms(h.createdAt) < ms(cycle.endsAt) - HOUR);
 
-  // Reports : déplacements de cycle en cycle avant l'entrée dans celui-ci
-  const carriedOver = hist.filter((h) => h.fromCycleId && h.toCycleId && ms(h.createdAt) <= addedTs + 24 * HOUR).length;
+  // Reports : nombre de cycles PRÉCÉDENTS distincts où le ticket est resté au moins 24 h avant d'arriver
+  // dans celui-ci. Les allers-retours manuels entre deux cycles et les bascules le jour même ne comptent pas.
+  const carriedOver = previousCycles(hist, raw.createdAt, cycle.id, addedTs).length;
 
   // Statut à l'entrée dans le cycle, puis transitions pendant le cycle
   const stateChanges = hist.filter((h) => h.toState);
@@ -226,7 +247,7 @@ function dropTrackedParents(issues) {
 }
 
 export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, sheets = null, teamConfig = {}, onProgress = () => {} } = {}) {
-  const { teams } = await linear('{ teams(first: 100) { nodes { id key name } } }');
+  const { teams, viewer } = await linear('{ viewer { organization { urlKey } } teams(first: 100) { nodes { id key name } } }');
   const team = teams.nodes.find((t) => t.key === teamKey);
   if (!team) throw new Error(`Équipe Linear « ${teamKey} » introuvable`);
 
@@ -360,6 +381,7 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
       source: 'linear',
       syncedAt: new Date().toISOString(),
       teamKey: team.key,
+      linearUrlKey: viewer.organization.urlKey,
       referenceDate: localDate(new Date().toISOString()),
       holidays,
       labelConventions: LABELS,

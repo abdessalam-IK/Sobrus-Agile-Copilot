@@ -313,23 +313,55 @@ function healthPrecision(t) {
 function renderPrecisions(t) {
   const h = t.headlineParts;
   const el = $('#precisions');
-  if (!h) { el.innerHTML = ''; return; }
-  const evidence = (s) => {
-    if (!s.evidence.length) return '';
-    const li = s.evidence.map((e) => `<li>${esc(e)}</li>`).join('');
-    return s.evidence.length > 8 ? `<details><summary>Voir les ${s.evidence.length} éléments</summary><ul>${li}</ul></details>` : `<ul>${li}</ul>`;
-  };
-  const signals = (theme) => t.signals.filter((s) => s.theme === theme).map((s) => `
-    <div class="precision-signal"><b>${esc(s.title)}</b><p class="muted">${esc(s.narrative)}</p>${evidence(s)}<div class="question">${esc(s.question)}</div></div>`).join('');
-  const blocks = h.items.map((x, i) => `
-    <div class="card precision" id="precision-${i + 1}"><h3>★${i + 1} — ${esc(t.insights.find((n) => n.theme === x.theme)?.label || '')}</h3>${signals(x.theme)}</div>`);
+  // Sur le Résumé, chaque point affiche déjà ses tickets : pas de section Précisions en double
+  if (!h || state.tab === 'overview') { el.innerHTML = ''; return; }
+  const blocks = h.items.map((x, i) => {
+    const sigs = t.signals.filter((sg) => sg.theme === x.theme);
+    return `<div class="card precision" id="precision-${i + 1}"><h3>★${i + 1} — ${esc(t.insights.find((n) => n.theme === x.theme)?.label || '')}</h3>${sigs.map((sg) => signalDetail(sg)).join('')}</div>`;
+  });
   if (h.watch.length) {
-    blocks.push(`<div class="card precision" id="precision-${h.items.length + 1}"><h3>★${h.items.length + 1} — À surveiller</h3>${h.watch.map((x) => `<h4>${esc(x.label)}</h4>${signals(x.theme)}`).join('')}</div>`);
+    const sigs = t.signals.filter((sg) => h.watch.some((w) => w.theme === sg.theme));
+    blocks.push(`<div class="card precision" id="precision-${h.items.length + 1}"><h3>★${h.items.length + 1} — À surveiller</h3>${sigs.map((sg) => signalDetail(sg)).join('')}</div>`);
   }
   if (t.healthBreakdown) blocks.push(healthPrecision(t));
   el.innerHTML = `<div class="section-title"><h2>Précisions</h2><span class="muted small">Le détail des points marqués d’une étoile dans le bandeau</span></div><div class="grid">${blocks.join('')}</div>`;
 }
 
+// ---------------------------------------------------------------------------
+// Tickets d'un signal : exactement ceux qu'annonce son titre, avec statut, personne et précision
+// ---------------------------------------------------------------------------
+const STATUS_TXT = { todo: 'À faire', in_progress: 'En cours', review: 'En revue', done: 'Terminé' };
+const STATUS_ORDER = { blocked: 0, progress: 1, todo: 2, done: 3 };
+
+function ticketLink(key) {
+  const ws = state.summary?.meta?.linearUrlKey;
+  return ws ? `<a href="https://linear.app/${encodeURIComponent(ws)}/issue/${encodeURIComponent(key)}" target="_blank" rel="noopener"><b>${esc(key)}</b></a>` : `<b>${esc(key)}</b>`;
+}
+
+function signalTickets(sg) {
+  const byKey = new Map(state.data.observe.issues.map((i) => [i.key, i]));
+  const rows = (sg.issues || []).map((k) => {
+    const i = byKey.get(k);
+    if (!i) return null;
+    const cls = i.done ? 'done' : i.blockedNow ? 'blocked' : i.status === 'todo' ? 'todo' : 'progress';
+    return { key: k, title: i.title, cls, status: i.blockedNow && !i.done ? 'Bloqué' : STATUS_TXT[i.status], who: i.assignee === 'non-assigne' ? '—' : name(i.assignee), note: sg.notes?.[k] || '' };
+  }).filter(Boolean).concat((sg.rows || []).map((r) => ({ key: r.key, title: r.title, cls: 'todo', status: r.status, who: '—', note: r.note })));
+  if (!rows.length) return '';
+  rows.sort((a, b) => STATUS_ORDER[a.cls] - STATUS_ORDER[b.cls]);
+  const open = rows.filter((r) => r.cls !== 'done').length;
+  const split = open && open < rows.length ? ` — ${open} restant${open > 1 ? 's' : ''}, ${rows.length - open} terminé${rows.length - open > 1 ? 's' : ''}` : '';
+  return `<details class="tickets"><summary>Voir les ${rows.length} ticket${rows.length > 1 ? 's' : ''}${split}</summary>
+    <table class="ticket-table"><thead><tr><th>Ticket</th><th>Statut</th><th>Assigné à</th><th>Précision</th></tr></thead><tbody>
+    ${rows.map((r) => `<tr><td>${ticketLink(r.key)} ${esc(r.title)}</td><td><span class="st ${r.cls}">${esc(r.status)}</span></td><td>${esc(r.who)}</td><td class="small muted">${esc(r.note)}</td></tr>`).join('')}
+    </tbody></table></details>`;
+}
+
+/** Détail d'un signal : constat, tickets (ou faits s'il n'y a pas de tickets), question à poser. */
+function signalDetail(sg) {
+  const tickets = signalTickets(sg);
+  const facts = !tickets && sg.evidence?.length ? `<ul class="small">${sg.evidence.slice(0, 6).map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : '';
+  return `<div class="precision-signal"><b>${esc(sg.title)}</b><p class="muted">${esc(sg.narrative)}</p>${tickets}${facts}<div class="question">${esc(sg.question)}</div></div>`;
+}
 // ---------------------------------------------------------------------------
 // Graphiques SVG
 // ---------------------------------------------------------------------------
@@ -637,24 +669,22 @@ function viewSignals() {
 // ---------------------------------------------------------------------------
 function viewOverview() {
   const { think: t } = state.data;
-  const items = t.headlineParts?.items || [];
-  const points = items.map((x, i) => {
-    const insight = t.insights.find((n) => n.theme === x.theme);
-    const sig = insight?.signals[0];
-    return `<div class="card point"><div class="point-num">${i + 1}</div><div>
-      <h3>${esc(insight?.headline || x.text)}</h3>
-      <p class="muted">${esc(sig?.narrative || '')}</p>
-      <div class="question">${esc(sig?.question || '')}</div>
-      <a class="small" href="#precision-${i + 1}">Voir les tickets concernés</a></div></div>`;
-  }).join('');
+  // Prioritaires : le signal principal de chaque thème mis en avant dans le bandeau
+  const priority = (t.headlineParts?.items || []).map((x) => t.signals.find((sg) => sg.theme === x.theme)).filter(Boolean);
+  const watch = t.signals.filter((sg) => !priority.includes(sg));
+  const points = priority.map((sg, i) => `<div class="card point"><div class="point-num">${i + 1}</div><div>
+      <h3>${esc(sg.title)}</h3>
+      <p class="muted">${esc(sg.narrative)}</p>
+      ${signalTickets(sg) || (sg.evidence?.length ? `<ul class="small">${sg.evidence.slice(0, 6).map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : '')}
+      <div class="question">${esc(sg.question)}</div></div></div>`).join('');
+  const watchList = watch.map((sg) => `<li class="watch-item"><b>${esc(sg.title)}</b><div class="small muted">${esc(sg.narrative)}</div>${signalTickets(sg) || (sg.evidence?.length ? `<ul class="small">${sg.evidence.slice(0, 4).map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : '')}</li>`).join('');
   const actions = t.recommendations.slice(0, 3);
   return `
-    ${points ? `<div class="section-title"><h2>Ce qui demande votre attention</h2></div><div class="grid">${points}</div>` : '<div class="card"><h2>Rien de particulier à signaler</h2><p class="muted">Le sprint se déroule sans signal notable.</p></div>'}
+    ${points ? `<div class="section-title"><h2>Ce qui demande votre attention</h2></div><div class="grid">${points}</div>` : '<div class="card"><h3>Aucun point urgent</h3><p class="muted">Rien ne demande d’action immédiate. Les points ci-dessous sont à garder à l’œil.</p></div>'}
+    ${watchList ? `<div class="section-title"><h2>À surveiller</h2><span class="muted small">Moins urgent, à garder à l’œil</span></div><div class="card"><ul class="watch">${watchList}</ul></div>` : ''}
     ${actions.length ? `<div class="section-title"><h2>Actions proposées</h2><span class="muted small">À discuter avec l’équipe, qui décide</span></div>
-      <div class="card"><ol class="actions">${actions.map((r) => `<li><b>${esc(r.text)}</b> <span class="muted small">— ${esc(r.owner)}</span></li>`).join('')}</ol></div>` : ''}
-    ${t.crossReadings.length ? `<p class="muted small" style="margin-top:12px"><b>Lecture d’ensemble :</b> ${esc(t.crossReadings[0])}</p>` : ''}`;
+      <div class="card"><ol class="actions">${actions.map((r) => `<li><b>${esc(r.text)}</b> <span class="muted small">— ${esc(r.owner)}</span></li>`).join('')}</ol></div>` : ''}`;
 }
-
 // ---------------------------------------------------------------------------
 // Pages de préparation (Daily, Review, Rétro, Planning, Rapport)
 // ---------------------------------------------------------------------------
