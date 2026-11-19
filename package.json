@@ -10,12 +10,15 @@
     "report": "node cli.js report",
     "test": "node --test",
     "sync": "node scripts/sync-linear.js",
-    "discover": "node scripts/linear-discover.js"
+    "discover": "node scripts/linear-discover.js",
+    "cloud:push": "node scripts/cloud-push.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.132.1"
+    "@anthropic-ai/sdk": "^0.132.1",
+    "@vercel/blob": "^2.9.0",
+    "@vercel/functions": "^3.11.3"
   }
 }

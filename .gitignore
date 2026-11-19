@@ -13,3 +13,7 @@ data/linear*.json
 
 # Outils locaux
 .claude/settings.local.json
+
+# Vercel
+.vercel/
+vercel-static/

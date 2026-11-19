@@ -144,6 +144,25 @@ node cli.js report --out rapport.md
 | `COPILOT_TZ` | Fuseau des dates et heures (journée du Daily, heures des mouvements) | `Africa/Casablanca` |
 | `SOBRUS_AI_PSEUDONYMIZE` | Remplace les prénoms par « Membre A, B… » avant l'envoi à Claude | `true` |
 
+## Version en ligne (Vercel)
+
+Lien partagé avec les responsables, **réservé aux comptes Google @sobrus.com**. Même moteur d'analyse qu'en local, sans la couche IA générative (qui reste sur le poste, via Claude Code).
+
+- `api/index.js` : une seule fonction sert l'interface et l'API, après vérification de la connexion. Sans configuration Google, le site refuse tout accès.
+- Données : store **Vercel Blob privé** (`data/linear-<équipe>.json.gz`). Dès que les données ont plus de 30 min, une visite déclenche une synchronisation Linear en arrière-plan (≈ 1 min) ; l'écran se recharge seul ensuite.
+- `equipe.json` et les Sheets ne sont jamais dans Git : `npm run cloud:push` les dépose dans le store privé (à relancer quand ils changent).
+
+Variables d'environnement Vercel :
+
+| Variable | Rôle |
+|----------|------|
+| `LINEAR_API_KEY` | Clé API Linear (lecture seule) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Client OAuth Google (type « Application Web »), URI de redirection `https://<domaine>/auth/callback` |
+| `SESSION_SECRET` | Secret de signature des sessions (32 caractères minimum) |
+| `BLOB_READ_WRITE_TOKEN` | Ajoutée par Vercel quand le store Blob est relié au projet |
+| `ALLOWED_EMAILS` | Optionnel : limite l'accès à ces adresses (séparées par des virgules) ; sinon tout compte @sobrus.com |
+| `PUBLIC_URL` | Optionnel : domaine public si différent de celui de la requête |
+
 ## Tests
 
 ```bash

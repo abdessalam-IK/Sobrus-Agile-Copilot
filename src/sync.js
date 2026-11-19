@@ -11,11 +11,18 @@ import { TEAMS, teamFile } from './store.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export async function syncLinear({ teamKey = TEAMS[0], closedCycles = 6, onProgress = () => {} } = {}) {
-  loadEnv();
-  const sheets = readSheets(path.join(root, 'data/private/Sheets'));
+/** Configuration privée locale : équipes déclarées (equipe.json) et exports Sheets. */
+export function localPrivateConfig() {
   const configFile = path.join(root, 'data/private/equipe.json');
-  const teamConfig = existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')) : {};
+  return {
+    sheets: readSheets(path.join(root, 'data/private/Sheets')),
+    teamConfig: existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')) : {},
+  };
+}
+
+export async function syncLinear({ teamKey = TEAMS[0], closedCycles = 6, onProgress = () => {}, config = null } = {}) {
+  loadEnv();
+  const { sheets, teamConfig } = config || localPrivateConfig();
   const t0 = Date.now();
   const dataset = await importFromLinear({ teamKey, closedCycles, sheets, teamConfig, onProgress });
   const out = teamFile(teamKey);
@@ -24,7 +31,7 @@ export async function syncLinear({ teamKey = TEAMS[0], closedCycles = 6, onProgr
   return {
     team: teamKey,
     product: dataset.meta.product,
-    file: path.relative(root, out),
+    file: path.relative(root, out) || out,
     seconds: Math.round((Date.now() - t0) / 1000),
     syncedAt: dataset.meta.syncedAt,
     sheets: sheets ? { developers: sheets.developers.length, holidays: sheets.holidays.length } : null,
@@ -37,11 +44,12 @@ export async function syncLinear({ teamKey = TEAMS[0], closedCycles = 6, onProgr
 }
 
 /** Synchronise toutes les équipes suivies, l'une après l'autre (limite de requêtes Linear). */
-export async function syncAll({ teams = TEAMS, closedCycles = 6, onProgress = () => {} } = {}) {
+export async function syncAll({ teams = TEAMS, closedCycles = 6, onProgress = () => {}, config = null } = {}) {
   const results = [];
+  const shared = config || localPrivateConfig();
   for (const teamKey of teams) {
     onProgress(`Équipe ${teamKey}…`);
-    results.push(await syncLinear({ teamKey, closedCycles, onProgress }));
+    results.push(await syncLinear({ teamKey, closedCycles, onProgress, config: shared }));
   }
   return results;
 }

@@ -13,7 +13,10 @@ export const TEAMS = (process.env.LINEAR_TEAMS || 'SUPP,CEN')
   .map((t) => t.trim().toUpperCase())
   .filter(Boolean);
 
-export const teamFile = (team) => path.join(root, `data/private/linear-${team.toLowerCase()}.json`);
+/** Dossier des données synchronisées : data/private en local, disque temporaire sur Vercel (lecture seule ailleurs). */
+export const DATA_DIR = process.env.COPILOT_DATA_DIR || (process.env.VERCEL ? '/tmp/copilot' : path.join(root, 'data/private'));
+
+export const teamFile = (team) => path.join(DATA_DIR, `linear-${team.toLowerCase()}.json`);
 
 /** Équipes déjà synchronisées (leur fichier existe). */
 export const availableTeams = () => TEAMS.filter((t) => existsSync(teamFile(t)));

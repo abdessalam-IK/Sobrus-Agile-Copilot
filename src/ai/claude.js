@@ -90,6 +90,7 @@ function findClaudeBinary() {
 const hasApiKey = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
 let cliCache = null;
 export function aiProvider() {
+  if (process.env.VERCEL || process.env.SOBRUS_AI_PROVIDER === 'off') return null; // version en ligne : pas d'IA générative
   const forced = process.env.SOBRUS_AI_PROVIDER;
   if (forced === 'api' || forced === 'claude-code') return forced;
   if (hasApiKey()) return 'api';

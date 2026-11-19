@@ -43,6 +43,7 @@ const role = (id) => state.summary?.team.find((m) => m.id === id)?.role || '';
 
 async function api(path, opts) {
   const res = await fetch(path, opts);
+  if (res.status === 401) { window.location.href = '/auth/login'; throw new Error('Connexion requise'); }
   const body = res.headers.get('content-type')?.includes('json') ? await res.json() : await res.text();
   if (!res.ok) throw new Error(body?.error || res.statusText);
   return body;
@@ -59,6 +60,12 @@ async function init() {
   const badge = $('#ai-badge');
   badge.textContent = state.config.ai.configured ? `IA générative : ${state.config.ai.model}` : 'IA générative : non configurée';
   badge.classList.toggle('on', state.config.ai.configured);
+  badge.hidden = state.config.online; // version en ligne : pas d'IA générative
+  if (state.config.user) {
+    $('#user').hidden = false;
+    $('#user-name').textContent = state.config.user.name;
+    $('#user-name').title = state.config.user.email;
+  }
   $('#sync-btn').addEventListener('click', syncNow);
   setInterval(refreshSyncLabel, 60e3); // l'âge des données avance chaque minute
   setInterval(watchFreshData, 5 * 60e3); // nouvelles données côté serveur → rechargement
@@ -871,6 +878,7 @@ function viewLearn() {
 const aiKey = (kind) => `${state.team}|${state.sprintId}|${state.data.observe.asOf}|${kind}`;
 
 function aiBox(kind, label) {
+  if (state.config.online) return ''; // l'IA générative reste sur le poste local
   const entry = state.ai[aiKey(kind)];
   const configured = state.config.ai.configured;
   let body = '';
