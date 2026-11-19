@@ -11,11 +11,11 @@ if (!key) {
   process.exit(1);
 }
 
-const vercel = (args, input) => spawnSync('npx.cmd', ['-y', 'vercel@latest', ...args], { input, stdio: [input ? 'pipe' : 'inherit', 'inherit', 'inherit'], shell: true });
+const vercel = (args, input) => spawnSync('npx.cmd', ['-y', 'vercel@latest', ...args], { input, stdio: [input !== undefined ? 'pipe' : 'inherit', 'inherit', 'inherit'], shell: true });
 
 console.log('Envoi de la clé Linear à Vercel (production)…');
-vercel(['env', 'rm', 'LINEAR_API_KEY', 'production', '--yes']); // remplace une éventuelle ancienne valeur
-const add = vercel(['env', 'add', 'LINEAR_API_KEY', 'production'], key);
+vercel(['env', 'rm', 'LINEAR_API_KEY', '--environment', 'production', '--yes'], ''); // remplace une éventuelle ancienne valeur
+const add = vercel(['env', 'add', 'LINEAR_API_KEY', '--environment', 'production'], key);
 if (add.status !== 0) process.exit(add.status ?? 1);
 
 console.log('Redéploiement de la version en ligne…');
