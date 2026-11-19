@@ -11,6 +11,7 @@ import { crossTeamLoad } from './src/engine/portfolio.js';
 import { sobrusOverview } from './src/engine/sobrus.js';
 import { TEAMS, availableTeams, loadDataset, loadAll } from './src/store.js';
 import { generate, aiConfigured, aiModel, aiProvider, AI_KINDS } from './src/ai/claude.js';
+import { timeZone, offsetMinutes } from './src/lib/tz.js';
 
 const PORT = Number(process.env.PORT || 4300);
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
@@ -33,6 +34,30 @@ function runAnalysis(team, sprintId, asOf) {
   return { dataset, analysis: analyze(dataset, sprintId, { asOf, portfolio: crossTeamLoad(loadAll()) }) };
 }
 
+// Synchronisation Linear : manuelle (bouton) ou automatique toutes les SYNC_EVERY_MIN minutes.
+// Toutes les équipes à la fois : la charge multi-projets a besoin de données fraîches partout.
+const SYNC_EVERY_MIN = Number(process.env.SYNC_EVERY_MIN ?? 30);
+let syncing = null;
+function runSync(reason) {
+  if (syncing) return syncing; // une synchronisation à la fois
+  syncing = (async () => {
+    const { syncAll } = await import('./src/sync.js');
+    try {
+      const results = await syncAll();
+      console.log(`Synchronisation ${reason} terminée (${new Date().toLocaleTimeString('fr-FR')})`);
+      return results;
+    } finally {
+      syncing = null;
+    }
+  })();
+  return syncing;
+}
+function autoSync() {
+  if (!SYNC_EVERY_MIN) return;
+  const oldest = availableTeams().map((t) => Date.parse(loadDataset(t).meta.syncedAt)).sort()[0];
+  if (!oldest || Date.now() - oldest > SYNC_EVERY_MIN * 60e3) runSync('automatique').catch((e) => console.error(`Synchronisation automatique impossible : ${e.message}`));
+}
+
 async function route(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const parts = url.pathname.split('/').filter(Boolean);
@@ -50,7 +75,7 @@ async function route(req, res) {
   }
 
   if (req.method === 'GET' && parts[1] === 'config') {
-    return send(res, 200, { ai: { configured: aiConfigured(), provider: aiProvider(), model: aiModel(), kinds: AI_KINDS } });
+    return send(res, 200, { timeZone: timeZone(), tzOffsetMin: offsetMinutes(), syncEveryMin: SYNC_EVERY_MIN, ai: { configured: aiConfigured(), provider: aiProvider(), model: aiModel(), kinds: AI_KINDS } });
   }
   if (req.method === 'GET' && parts[1] === 'teams') {
     return send(res, 200, availableTeams().map((t) => {
@@ -67,11 +92,7 @@ async function route(req, res) {
   if (req.method === 'GET' && parts[1] === 'report' && parts[2]) {
     return send(res, 200, runAnalysis(team, parts[2].replace(/\.md$/, ''), asOf).analysis.report, 'text/markdown; charset=utf-8');
   }
-  if (req.method === 'POST' && parts[1] === 'sync') {
-    // Toutes les équipes : la charge multi-projets a besoin de données fraîches partout
-    const { syncAll } = await import('./src/sync.js');
-    return send(res, 200, await syncAll());
-  }
+  if (req.method === 'POST' && parts[1] === 'sync') return send(res, 200, await runSync('manuelle'));
   if (req.method === 'POST' && parts[1] === 'ai' && parts[2]) {
     const { kind, asOf: bodyAsOf, team: bodyTeam } = await readBody(req);
     const { dataset, analysis } = runAnalysis((bodyTeam || team).toUpperCase(), parts[2], bodyAsOf);
@@ -91,4 +112,9 @@ http
     console.log(`Sobrus AI Copilot → http://localhost:${PORT}`);
     console.log(`Équipes suivies : ${TEAMS.join(', ')} · synchronisées : ${availableTeams().join(', ') || 'aucune (npm run sync)'}`);
     console.log(aiConfigured() ? `Couche IA générative active : ${aiModel()}.` : 'Couche IA générative inactive (installer Claude Code ou définir ANTHROPIC_API_KEY). Le moteur d’analyse fonctionne sans.');
+    if (SYNC_EVERY_MIN) {
+      console.log(`Synchronisation automatique de Linear toutes les ${SYNC_EVERY_MIN} min (SYNC_EVERY_MIN=0 pour la désactiver).`);
+      autoSync();
+      setInterval(autoSync, 60e3); // vérifie chaque minute si les données ont dépassé l'âge limite
+    }
   });

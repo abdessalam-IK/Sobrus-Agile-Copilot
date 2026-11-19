@@ -140,6 +140,8 @@ node cli.js report --out rapport.md
 | `LINEAR_API_KEY` | Clé API Linear (lecture seule) | — |
 | `LINEAR_TEAMS` | Équipes Linear suivies (clés, séparées par des virgules) | `SUPP,CEN` |
 | `PORT` | Port HTTP | `4300` |
+| `SYNC_EVERY_MIN` | Synchronisation automatique de Linear tant que le serveur tourne (minutes ; `0` = désactivée). L’écran se recharge seul quand de nouvelles données arrivent | `30` |
+| `COPILOT_TZ` | Fuseau des dates et heures (journée du Daily, heures des mouvements) | `Africa/Casablanca` |
 | `SOBRUS_AI_PSEUDONYMIZE` | Remplace les prénoms par « Membre A, B… » avant l'envoi à Claude | `true` |
 
 ## Tests

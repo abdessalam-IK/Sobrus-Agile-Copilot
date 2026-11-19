@@ -14,10 +14,9 @@
 
 import { linear, paginate } from './linear-client.js';
 import { addDays } from '../lib/calendar.js';
+import { fmt } from '../lib/tz.js';
 
-const TZ = 'Africa/Casablanca';
-const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
-export const localDate = (ts) => (ts ? dayFmt.format(new Date(ts)) : null);
+export const localDate = (ts) => (ts ? fmt('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts)) : null);
 const HOUR = 3600e3;
 const PAGE = Number(process.env.LINEAR_PAGE_SIZE || 8); // limite de complexité GraphQL Linear
 const ms = (ts) => new Date(ts).getTime();
@@ -186,7 +185,7 @@ export function buildIssue(raw, cycle, nowTs = Date.now()) {
     labels,
     // Historique complet des statuts Linear (y compris après la fin du cycle) : sert au cycle time
     // par étape (Todo for Dev → In Progress → Done à tester → Vérifié QA → OVH → PROD).
-    stages: hist.filter((h) => h.toState).map((h) => ({ at: h.createdAt, date: localDate(h.createdAt), state: h.toState.name })),
+    stages: hist.filter((h) => h.toState).map((h) => ({ at: h.createdAt, date: localDate(h.createdAt), state: h.toState.name, from: h.fromState?.name || null })),
     addedDate,
     removedDate,
     carriedOver,

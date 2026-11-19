@@ -6,6 +6,7 @@
 import { STATUS_LABELS, deliveryMembers } from './observe.js';
 import { agingWip } from './flow.js';
 import { workingDays } from '../lib/calendar.js';
+import { fmt } from '../lib/tz.js';
 import { mean, sum, round, pct, quantile } from '../lib/stats.js';
 
 const pts = (i) => i.points || 0;
@@ -14,18 +15,30 @@ const pts = (i) => i.points || 0;
 // Daily : qui fait quoi, ce qui a bougé, ce qui coince
 // ---------------------------------------------------------------------------
 const dm = (d) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : '');
+const hourOf = (iso) => fmt('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 
 function daily(snap, thought, history, holidays, names) {
   const idx = snap.days.filter((d) => d <= snap.asOf).length - 1;
   const since = snap.days[Math.max(0, idx - 1)];
   const previous = history.filter((h) => h.snap.closed && h.snap.sprint.id !== snap.sprint.id).map((h) => h.snap);
 
-  // Ce qui a bougé depuis le dernier jour ouvré : le dernier statut atteint par ticket
+  // Ce qui a bougé depuis le dernier jour ouvré. On lit l'historique EXACT des statuts Linear
+  // (« Ready for Dev → Todo for Dev », « In Progress → Done à tester »…), et non les statuts regroupés
+  // du Copilot, sinon un passage entre deux statuts « à faire » serait invisible.
   const moved = [];
   for (const i of snap.issues) {
-    const steps = i.history.filter((h) => h.date >= since && h.date <= snap.asOf);
-    if (steps.length) moved.push({ key: i.key, note: `→ ${STATUS_LABELS[steps.at(-1).to].toLowerCase()} le ${dm(steps.at(-1).date)}` });
+    if (i.stages?.length) {
+      const steps = i.stages.filter((st) => st.date >= since && st.date <= snap.asOf);
+      if (!steps.length) continue;
+      const before = i.stages.filter((st) => st.at < steps[0].at).at(-1)?.state || steps[0].from;
+      const last = steps.at(-1);
+      moved.push({ key: i.key, at: last.at, note: `${before ? `${before} → ` : ''}${last.state}, le ${dm(last.date)} à ${hourOf(last.at)}${steps.length > 1 ? ` (${steps.length} changements)` : ''}` });
+    } else {
+      const steps = i.history.filter((h) => h.date >= since && h.date <= snap.asOf);
+      if (steps.length) moved.push({ key: i.key, at: steps.at(-1).date, note: `→ ${STATUS_LABELS[steps.at(-1).to].toLowerCase()} le ${dm(steps.at(-1).date)}` });
+    }
   }
+  moved.sort((a, b) => b.at.localeCompare(a.at)); // le plus récent d'abord
   const added = snap.issues.filter((i) => i.addedMidSprint && i.addedDate >= since && i.addedDate <= snap.asOf);
 
   // Ce qui coince : tickets bloqués, et tickets en cours depuis plus longtemps que d'habitude

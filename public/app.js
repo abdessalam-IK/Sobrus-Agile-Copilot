@@ -60,6 +60,8 @@ async function init() {
   badge.textContent = state.config.ai.configured ? `IA générative : ${state.config.ai.model}` : 'IA générative : non configurée';
   badge.classList.toggle('on', state.config.ai.configured);
   $('#sync-btn').addEventListener('click', syncNow);
+  setInterval(refreshSyncLabel, 60e3); // l'âge des données avance chaque minute
+  setInterval(watchFreshData, 5 * 60e3); // nouvelles données côté serveur → rechargement
 
   // Vue Sobrus par défaut ; sinon le dernier projet ouvert dans ce navigateur
   let saved = null;
@@ -180,21 +182,47 @@ function viewSobrus(v) {
     ${changes.length ? `<div class="section-title"><h2>Ce qui change d’un sprint à l’autre</h2></div><div class="card"><ul class="changes">${changes.join('')}</ul></div>` : ''}`;
 }
 
-/** Date de la dernière synchronisation Linear, en évidence si elle ne date pas d'aujourd'hui. */
+/** Date et âge de la dernière synchronisation Linear, en évidence au-delà d'une heure. */
 function renderSync(meta) {
   $('#sync').hidden = meta.source !== 'linear';
-  if (meta.source !== 'linear') return;
-  const at = new Date(meta.syncedAt);
-  const today = new Date().toDateString() === at.toDateString();
+  state.syncedAt = meta.source === 'linear' ? meta.syncedAt : null;
+  refreshSyncLabel();
+}
+
+const ageText = (min) => (min < 1 ? 'à l’instant' : min < 60 ? `il y a ${min} min` : min < 1440 ? `il y a ${Math.floor(min / 60)} h${String(min % 60).padStart(2, '0')}` : `il y a ${Math.floor(min / 1440)} j`);
+
+function refreshSyncLabel() {
+  if (!state.syncedAt) return;
+  const at = new Date(state.syncedAt);
+  const min = Math.max(0, Math.floor((Date.now() - at) / 60e3));
+  const stale = min > 60;
+  // Même heure que le serveur : le décalage vient de lui (les navigateurs n'ont pas tous les mêmes données de fuseau)
+  const local = new Date(at.getTime() + (state.config?.tzOffsetMin ?? -at.getTimezoneOffset()) * 60e3);
+  const two = (n) => String(n).padStart(2, '0');
   const label = $('#sync-label');
-  label.textContent = `Données du ${at.toLocaleDateString('fr-FR')} à ${at.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
-  label.classList.toggle('stale', !today);
-  label.title = today ? '' : 'Les données ne sont pas à jour : cliquez sur « Synchroniser Linear ».';
+  label.textContent = `Données du ${two(local.getUTCDate())}/${two(local.getUTCMonth() + 1)}/${local.getUTCFullYear()} à ${two(local.getUTCHours())}:${two(local.getUTCMinutes())} · ${ageText(min)}`;
+  label.classList.toggle('stale', stale);
+  label.title = stale ? 'Les données ont plus d’une heure : cliquez sur « Synchroniser Linear ».' : (state.config?.syncEveryMin ? `Synchronisation automatique toutes les ${state.config.syncEveryMin} min tant que le serveur tourne.` : '');
+}
+
+/** Recharge la vue dès que le serveur a de nouvelles données (synchronisation automatique). */
+async function watchFreshData() {
+  if (state.syncBusy) return;
+  try {
+    const teams = await api('/api/teams');
+    const sig = (list) => list.map((t) => `${t.key}:${t.syncedAt}`).join('|');
+    if (sig(teams) === sig(state.teams)) return;
+    state.teams = teams;
+    state.ai = {};
+    if (state.mode === 'sobrus') await loadSobrus();
+    else await loadTeam(true);
+  } catch { /* serveur arrêté : on réessaiera */ }
 }
 
 async function syncNow() {
   const btn = $('#sync-btn');
   btn.disabled = true;
+  state.syncBusy = true;
   btn.textContent = `Synchronisation de ${state.teams.length} projet${state.teams.length > 1 ? 's' : ''}… (≈ ${30 * state.teams.length} s)`;
   try {
     await api('/api/sync', { method: 'POST' });
@@ -206,6 +234,7 @@ async function syncNow() {
     alert(`Synchronisation impossible : ${err.message}`);
   } finally {
     btn.disabled = false;
+    state.syncBusy = false;
     btn.textContent = '↻ Synchroniser Linear';
   }
 }
