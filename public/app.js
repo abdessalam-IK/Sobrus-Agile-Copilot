@@ -16,7 +16,7 @@ const ESSENTIAL = 'L’essentiel';
 const DETAILS = 'Analyses détaillées';
 const PAGES = [
   { id: 'overview', group: ESSENTIAL, label: 'Résumé', sub: 'Le sprint en 30 secondes', intro: 'Où en est le sprint, les points qui demandent votre attention et les actions proposées.' },
-  { id: 'daily', group: ESSENTIAL, label: 'Daily', sub: 'Préparer le point du jour', intro: 'À ouvrir 5 minutes avant le Daily : ce qui a bougé depuis hier, ce qui est bloqué ou immobile, et les questions à poser à l’équipe.' },
+  { id: 'daily', group: ESSENTIAL, label: 'Daily', sub: 'Préparer le point du jour', intro: 'À ouvrir 5 minutes avant le Daily : qui fait quoi, ce qui coince, ce qui a bougé depuis le dernier jour ouvré et les questions à poser.' },
   { id: 'review', group: ESSENTIAL, label: 'Sprint Review', sub: 'Livré, non livré, messages', intro: 'L’objectif du sprint, ce qui est livré, ce qui ne l’est pas et pourquoi, et les messages clés à partager.' },
   { id: 'retro', group: ESSENTIAL, label: 'Rétrospective', sub: 'Préparer l’atelier', intro: 'Les données à montrer, la chronologie des événements, les questions à poser et le suivi des actions précédentes.' },
   { id: 'planning', group: ESSENTIAL, label: 'Prochain Planning', sub: 'Capacité et points à challenger', intro: 'La capacité du prochain sprint (congés et jours fériés inclus), une fourchette d’engagement réaliste et les tickets à challenger.' },
@@ -269,7 +269,7 @@ function renderHero() {
     <div class="gauge">${gauge(t.health, t.healthLabel)}${t.healthBreakdown ? `<div class="gauge-parts"><span title="Travail terminé par rapport à l’attendu à ce jour du sprint">Avancement ${t.healthBreakdown.progress.score}</span> · <span title="Points d’attention, un par thème">Signaux ${t.healthBreakdown.signals.score}</span></div><a class="small" href="#precision-sante">Comment est-elle calculée ?</a>` : ''}</div>
     <div>
       <div class="goal-line">🎯 ${esc(o.sprint.goal)} · ${o.closed ? 'Sprint terminé' : `Jour ${o.dayIndex}/${o.totalDays} (au ${dm(o.asOf)})`}</div>
-      <div class="headline">${state.tab === 'overview' ? esc(verdict(t)) : headlineHtml(t)}</div>
+      <div class="headline">${isEssential() ? esc(verdict(t)) : headlineHtml(t)}</div>
       <div class="facts">${t.facts.slice(0, 3).map((f) => `<span class="fact">${esc(f)}</span>`).join('')}</div>
     </div>`;
   renderPrecisions(t);
@@ -281,6 +281,9 @@ function verdict(t) {
   const state_ = t.health >= 75 ? 'Sprint dans les temps' : t.health >= 50 ? 'Sprint sous tension' : 'Sprint en difficulté';
   return n ? `${state_} : ${n} point${n > 1 ? 's demandent' : ' demande'} votre attention.` : `${state_} : rien de particulier à signaler.`;
 }
+
+/** Page de l'essentiel (Résumé, Daily, Review, Rétro, Planning) : bandeau court, sans Précisions. */
+const isEssential = () => PAGES.find((p) => p.id === state.tab)?.group === ESSENTIAL;
 
 const star = (k) => `<a class="star" href="#precision-${k}" title="Voir le détail en bas de page">★${k}</a>`;
 
@@ -314,7 +317,7 @@ function renderPrecisions(t) {
   const h = t.headlineParts;
   const el = $('#precisions');
   // Sur le Résumé, chaque point affiche déjà ses tickets : pas de section Précisions en double
-  if (!h || state.tab === 'overview') { el.innerHTML = ''; return; }
+  if (!h || isEssential()) { el.innerHTML = ''; return; } // pages de l'essentiel : pas de Précisions
   const blocks = h.items.map((x, i) => {
     const sigs = t.signals.filter((sg) => sg.theme === x.theme);
     return `<div class="card precision" id="precision-${i + 1}"><h3>★${i + 1} — ${esc(t.insights.find((n) => n.theme === x.theme)?.label || '')}</h3>${sigs.map((sg) => signalDetail(sg)).join('')}</div>`;
@@ -338,24 +341,38 @@ function ticketLink(key) {
   return ws ? `<a href="https://linear.app/${encodeURIComponent(ws)}/issue/${encodeURIComponent(key)}" target="_blank" rel="noopener"><b>${esc(key)}</b></a>` : `<b>${esc(key)}</b>`;
 }
 
-function signalTickets(sg) {
+/** Lignes d'un tableau de tickets : statut, personne et précision ; les tickets à traiter d'abord. */
+function ticketRows(sel) {
   const byKey = new Map(state.data.observe.issues.map((i) => [i.key, i]));
-  const rows = (sg.issues || []).map((k) => {
+  const rows = (sel.issues || []).map((k) => {
     const i = byKey.get(k);
     if (!i) return null;
     const cls = i.done ? 'done' : i.blockedNow ? 'blocked' : i.status === 'todo' ? 'todo' : 'progress';
-    return { key: k, title: i.title, cls, status: i.blockedNow && !i.done ? 'Bloqué' : STATUS_TXT[i.status], who: i.assignee === 'non-assigne' ? '—' : name(i.assignee), note: sg.notes?.[k] || '' };
-  }).filter(Boolean).concat((sg.rows || []).map((r) => ({ key: r.key, title: r.title, cls: 'todo', status: r.status, who: '—', note: r.note })));
-  if (!rows.length) return '';
-  rows.sort((a, b) => STATUS_ORDER[a.cls] - STATUS_ORDER[b.cls]);
-  const open = rows.filter((r) => r.cls !== 'done').length;
-  const split = open && open < rows.length ? ` — ${open} restant${open > 1 ? 's' : ''}, ${rows.length - open} terminé${rows.length - open > 1 ? 's' : ''}` : '';
-  return `<details class="tickets"><summary>Voir les ${rows.length} ticket${rows.length > 1 ? 's' : ''}${split}</summary>
-    <table class="ticket-table"><thead><tr><th>Ticket</th><th>Statut</th><th>Assigné à</th><th>Précision</th></tr></thead><tbody>
-    ${rows.map((r) => `<tr><td>${ticketLink(r.key)} ${esc(r.title)}</td><td><span class="st ${r.cls}">${esc(r.status)}</span></td><td>${esc(r.who)}</td><td class="small muted">${esc(r.note)}</td></tr>`).join('')}
-    </tbody></table></details>`;
+    return { key: k, title: i.title, cls, status: i.blockedNow && !i.done ? 'Bloqué' : STATUS_TXT[i.status], who: i.assignee === 'non-assigne' ? '—' : name(i.assignee), note: sel.notes?.[k] || '' };
+  }).filter(Boolean).concat((sel.rows || []).map((r) => ({ key: r.key, title: r.title, cls: 'todo', status: r.status, who: '—', note: r.note })));
+  return rows.sort((a, b) => STATUS_ORDER[a.cls] - STATUS_ORDER[b.cls]);
 }
 
+function ticketTable(rows, { noteLabel = 'Précision' } = {}) {
+  return `<table class="ticket-table"><thead><tr><th>Ticket</th><th>Statut</th><th>Assigné à</th><th>${noteLabel}</th></tr></thead><tbody>
+    ${rows.map((r) => `<tr><td>${ticketLink(r.key)} ${esc(r.title)}</td><td><span class="st ${r.cls}">${esc(r.status)}</span></td><td>${esc(r.who)}</td><td class="small muted">${esc(r.note)}</td></tr>`).join('')}
+    </tbody></table>`;
+}
+
+/** Tableau ouvert, ou un message quand il n'y a aucun ticket. */
+function ticketsOpen(sel, empty, opts) {
+  const rows = ticketRows(sel);
+  return rows.length ? ticketTable(rows, opts) : `<p class="empty">${esc(empty)}</p>`;
+}
+
+/** Tableau repliable : le résumé annonce le nombre de tickets et combien restent. */
+function signalTickets(sg, { label, opts } = {}) {
+  const rows = ticketRows(sg);
+  if (!rows.length) return '';
+  const open = rows.filter((r) => r.cls !== 'done').length;
+  const split = open && open < rows.length ? ` — ${open} restant${open > 1 ? 's' : ''}, ${rows.length - open} terminé${rows.length - open > 1 ? 's' : ''}` : '';
+  return `<details class="tickets"><summary>${label ? esc(label) : `Voir les ${rows.length} ticket${rows.length > 1 ? 's' : ''}`}${split}</summary>${ticketTable(rows, opts)}</details>`;
+}
 /** Détail d'un signal : constat, tickets (ou faits s'il n'y a pas de tickets), question à poser. */
 function signalDetail(sg) {
   const tickets = signalTickets(sg);
@@ -692,64 +709,86 @@ function list(items, empty = '—') {
   return items.length ? `<ul>${items.map((x) => `<li>${x}</li>`).join('')}</ul>` : `<p class="empty">${empty}</p>`;
 }
 
+const inProgressBanner = (x, what) => (x.anticipated ? `<p class="banner">Sprint en cours (jour ${x.day}) : ${what} se complètera d’ici la fin du sprint.</p>` : '');
+
 function prepDaily(d) {
-  return `<div class="grid cols-2">
-    <div class="card"><h3>Avant le Daily — ${dm(d.date)} (jour ${d.day})</h3>
-      <p class="muted">🎯 ${esc(d.sprintGoal)} — ${d.goalProgress.done}/${d.goalProgress.total} éléments clés terminés</p>
-      <h4>Questions à poser</h4>${d.questions.map((q) => `<div class="question">${esc(q)}</div>`).join('') || '<p class="empty">—</p>'}
-      <p class="small muted" style="margin-top:10px">💡 ${esc(d.tip)}</p>
+  const t = d.totals;
+  const team = d.team.map((p) => `<tr${p.guest ? ' class="guest"' : ''}>
+      <td><b>${esc(p.member)}</b>${p.guest ? ' <span class="small muted">(hors équipe)</span>' : ''}${p.absentToday ? ' <span class="tag orange">absent aujourd’hui</span>' : ''}</td>
+      <td>${p.inProgress.length ? p.inProgress.map((k) => ticketLink(k)).join(', ') : '<span class="muted">—</span>'}</td>
+      <td class="num">${p.todo}</td><td class="num">${p.done}</td></tr>`).join('');
+  return `
+    <div class="kpis">
+      ${kpi('Jour', d.day, `au ${dm(d.date)}`)}
+      ${kpi('Terminés', `${t.done} / ${t.scope}`, 'tickets du sprint')}
+      ${kpi('En cours', t.inProgress, 'tickets')}
+      ${kpi('À faire', t.todo, 'tickets pas démarrés')}
     </div>
-    <div class="card"><h3>Ce qui a bougé depuis hier</h3>${list(d.moved.map((m) => `<b>${esc(m.key)}</b> → ${STATUS[m.to]} (${esc(name(m.assignee))}, ${dm(m.date)})`), 'Aucun mouvement : à questionner en Daily.')}
-      <h3>Bloqués</h3>${list(d.blocked.map((b) => `<b>${esc(b.key)}</b> — ${b.days} j — ${esc(b.reason)}${b.dependency ? ` <span class="tag red">${esc(b.dependency)}</span>` : ''}`), 'Aucun blocage déclaré.')}
-      <h3>Immobiles</h3>${list(d.stuck.map((s) => `<b>${esc(s.key)}</b> — ${esc(s.status)} depuis ${s.days} j (${esc(s.assignee)})`), 'Aucun ticket immobile.')}
-      ${d.forecast ? `<p class="small muted">Probabilité de terminer le périmètre : <b>${pct(d.forecast.probability)}</b></p>` : ''}
-    </div></div>`;
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card"><h3>Questions pour le Daily</h3>${d.questions.map((q) => `<div class="question">${esc(q)}</div>`).join('')}</div>
+      <div class="card"><h3>Ce qui coince</h3>${ticketsOpen(d.stuck, 'Aucun ticket bloqué ni en retard par rapport à d’habitude.')}</div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>Qui fait quoi</h3>
+      <table><thead><tr><th>Personne</th><th>En cours</th><th class="num">À faire</th><th class="num">Terminés</th></tr></thead><tbody>${team}</tbody></table>
+      ${d.unassigned.length ? `<p class="small" style="margin-top:8px"><b>Non assignés :</b> ${d.unassigned.map((k) => ticketLink(k)).join(', ')}</p>` : ''}
+    </div>
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card"><h3>Ce qui a bougé depuis le ${dm(d.since)}</h3>${ticketsOpen(d.moved, 'Aucun changement de statut depuis le dernier jour ouvré.', { noteLabel: 'Changement' })}</div>
+      <div class="card"><h3>Arrivés dans le sprint depuis le ${dm(d.since)}</h3>${ticketsOpen(d.added, 'Aucun nouveau ticket.')}</div>
+    </div>`;
 }
-
 function prepReview(r) {
-  return `${r.anticipated ? '<p class="tag orange" style="display:inline-block;margin-bottom:10px">Préparation anticipée : le sprint est encore en cours</p>' : ''}
-  <div class="grid cols-2">
-    <div class="card"><h3>Objectif : ${esc(r.goalStatus)}</h3><p class="muted">${esc(r.goal)} — ${esc(r.goalDetail)}</p>
-      <h4>Messages clés</h4>${list(r.keyMessages.map(esc))}
+  const groups = r.delivered.map((g) => signalTickets({ issues: g.issues }, { label: `${g.name} — ${g.issues.length} ticket${g.issues.length > 1 ? 's' : ''}` })).join('');
+  return `${inProgressBanner(r, 'la Review')}
+    <div class="card"><h3>Messages clés</h3>
+      <p class="muted">${r.goalSet ? `Objectif du sprint : « ${esc(r.goal)} »` : 'Aucun objectif de sprint écrit dans Linear.'}</p>
+      ${list(r.keyMessages.map(esc))}
     </div>
-    <div class="card"><h3>Livré</h3>${r.delivered.map((e) => `<p><b>${esc(e.epic)}</b> · ${e.points} pts</p>${list(e.items.map((i) => `${esc(i.key)} ${esc(i.title)}${i.goal ? ' <span class="tag brand">objectif</span>' : ''}`))}`).join('') || '<p class="empty">Rien de terminé.</p>'}
-      <h3>Non livré — et pourquoi</h3>${list(r.notDelivered.map((i) => `<b>${esc(i.key)}</b> ${esc(i.title)} <span class="muted">— ${esc(i.reason)}</span>`), 'Tout est livré.')}
-      ${r.feedback.length ? `<h3>Feedback reçu</h3>${list(r.feedback.map((f) => `<b>${esc(f.from)}</b> <span class="tag ${f.sentiment === 'negative' ? 'red' : f.sentiment === 'positive' ? 'green' : ''}">${f.sentiment}</span> « ${esc(f.text)} »`))}` : ''}
-    </div></div>`;
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card"><h3>Livré</h3><p class="small muted">Regroupé par fonctionnalité ou projet.</p>${groups || '<p class="empty">Rien de livré pour l’instant.</p>'}</div>
+      <div class="card"><h3>Pas livré, et pourquoi</h3>${r.anticipated && r.notDelivered.issues.length ? signalTickets(r.notDelivered, { label: `Voir les ${r.notDelivered.issues.length} tickets pas encore livrés`, opts: { noteLabel: 'Raison' } }) : ticketsOpen(r.notDelivered, 'Tout est livré.', { noteLabel: 'Raison' })}</div>
+    </div>
+    ${r.feedback.length ? `<div class="card" style="margin-top:16px"><h3>Retours des parties prenantes</h3>${list(r.feedback.map((f) => `<b>${esc(f.from)}</b> « ${esc(f.text)} »`))}</div>` : ''}`;
 }
-
 function prepRetro(r) {
-  return `${r.anticipated ? '<p class="tag orange" style="display:inline-block;margin-bottom:10px">Préparation anticipée : le sprint est encore en cours</p>' : ''}
-  <div class="grid cols-2">
-    <div class="card"><h3>Données à montrer</h3><div class="kpis">${r.dataCards.map((c) => kpi(c.label, esc(c.value))).join('')}</div>
-      <h4 style="margin-top:12px">Questions pour l’équipe</h4>${r.questions.map((q) => `<div class="question">${esc(q)}</div>`).join('')}
-      <h4 style="margin-top:12px">Expériences possibles</h4>${list(r.experiments.map((e) => `${esc(e.hypothesis)} <span class="muted">(${esc(e.owner)})</span>`))}
+  const topics = r.topics.map((t, i) => `<div class="precision-signal"><b>${i + 1}. ${esc(t.title)}</b><p class="muted">${esc(t.narrative)}</p>${signalTickets(t)}<div class="question">${esc(t.question)}</div></div>`).join('');
+  return `${inProgressBanner(r, 'la Rétro')}
+    <div class="kpis">${r.dataCards.map((c) => kpi(c.label, esc(c.value), c.hint || '')).join('')}</div>
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card"><h3>Sujets à discuter</h3>${topics || '<p class="empty">Aucun sujet marquant.</p>'}</div>
+      <div>
+        <div class="card"><h3>Questions pour l’équipe</h3>${r.questions.map((q) => `<div class="question">${esc(q)}</div>`).join('')}</div>
+        <div class="card" style="margin-top:16px"><h3>Actions à tester au prochain sprint</h3>${list(r.experiments.map((e) => `<b>${esc(e.action)}</b> <span class="muted small">— ${esc(e.owner)}</span><div class="small muted">${esc(e.measure)}</div>`), 'Aucune action proposée.')}</div>
+        <div class="card" style="margin-top:16px"><h3>Actions de la rétro précédente</h3>${list(r.previousActions.map((a) => `${esc(a.text)} — ${esc(a.owner)} <span class="tag ${a.status === 'done' ? 'green' : a.status === 'in_progress' ? 'orange' : 'red'}">${a.status === 'done' ? 'réalisée' : a.status === 'in_progress' ? 'en cours' : 'non démarrée'}</span>`), 'Aucune action de rétro enregistrée pour le sprint précédent.')}</div>
+      </div>
     </div>
-    <div class="card"><h3>Suivi des actions de la rétro précédente</h3>
-      ${list(r.previousActions.map((a) => `${esc(a.text)} — ${esc(a.owner)} <span class="tag ${a.status === 'done' ? 'green' : a.status === 'in_progress' ? 'orange' : 'red'}">${a.status === 'done' ? 'réalisée' : a.status === 'in_progress' ? 'en cours' : 'non démarrée'}</span>`), 'Aucune action précédente.')}
-      <h3>Chronologie du sprint</h3>
-      ${r.timeline.length ? `<ul class="timeline">${r.timeline.map((e) => `<li class="${e.kind}">${dm(e.date)} · ${esc(e.text)}</li>`).join('')}</ul>` : '<p class="empty">Sprint sans événement notable.</p>'}
-    </div></div>`;
+    <div class="card" style="margin-top:16px"><h3>Chronologie du sprint</h3>
+      ${r.timeline.length ? `<ul class="timeline">${r.timeline.map((d) => `<li><b>${dm(d.date)}</b> · ${d.events.map(esc).join(' · ')}</li>`).join('')}</ul>` : '<p class="empty">Aucun événement marquant (ajout, réouverture, blocage).</p>'}
+    </div>`;
 }
-
 function prepPlanning(p) {
+  const o = state.data.observe;
+  const nearEnd = o.closed || o.dayIndex >= o.totalDays - 2;
+  const fromSprint = p.candidates.filter((c) => c.origin !== 'Backlog produit');
+  const fromBacklog = p.candidates.filter((c) => c.origin === 'Backlog produit');
+  const table = (items) => `<table class="ticket-table"><thead><tr><th>Ticket</th><th class="num">Points</th><th>À vérifier avant de s’engager</th></tr></thead><tbody>
+    ${items.map((c) => `<tr><td>${ticketLink(c.key)} ${esc(c.title)}</td><td class="num">${c.points ?? '<span class="muted">non estimé</span>'}</td><td>${c.flags.length ? c.flags.map((x) => `<div class="tag ${x.level === 'high' ? 'red' : 'orange'}" style="margin:2px 0;white-space:normal">${esc(x.text)}</div>`).join('') : '<span class="tag green">Prêt</span>'}</td></tr>`).join('')}
+    </tbody></table>`;
   return `<div class="grid cols-2">
     <div class="card"><h3>Équipe ${p.capacity ? `— ${esc(p.capacity.sprint)}` : ''}</h3>
       ${p.capacity ? list(p.capacity.members.map((m) => `<b>${esc(m.member)}</b> <span class="muted small">${esc(m.role || '')}</span>${m.absences ? ` <span class="tag orange">absent${m.absences > 1 ? ` ${m.absences} jours` : ' 1 jour'}</span>` : ''}`)) : '<p class="empty">Sprint suivant non renseigné.</p>'}
       ${p.range ? `<div class="kpis">${kpi('Fourchette réaliste', `${p.range.low}–${p.range.high} pts`, 'au rythme des 3 derniers sprints')}${kpi('Ajouts habituels', `${p.range.buffer} pts`, 'ajoutés en moyenne en cours de sprint')}${kpi('Engagement suggéré', `≈ ${p.range.recommended} pts`, 'fourchette moins les ajouts habituels')}</div>` : ''}
+      <h4 style="margin-top:12px">Questions pour le Planning</h4>${p.questions.map((q) => `<div class="question">${esc(q)}</div>`).join('')}
       <h4 style="margin-top:12px">Historique</h4>
       <table><thead><tr><th>Sprint</th><th class="num">Engagé au Planning</th><th class="num">Livré</th></tr></thead><tbody>${p.velocityHistory.map((v) => `<tr><td>${esc(v.sprint)}</td><td class="num">${v.committed} pts</td><td class="num">${v.done} pts</td></tr>`).join('')}</tbody></table>
-      <h4 style="margin-top:12px">Préconditions</h4>${list(p.preconditions.map(esc))}
-      <h4>Questions pour le Planning</h4>${p.questions.map((q) => `<div class="question">${esc(q)}</div>`).join('')}
     </div>
-    <div class="card" id="candidates"><h3>Candidats et éléments à challenger</h3>
-      <p class="muted small">${p.candidates.filter((c) => c.ready).length} prêts (${p.readyPoints} pts) · ${p.toChallenge.length} à challenger</p>
-      <table><thead><tr><th>Élément</th><th class="num">Pts</th><th>Points d’attention</th></tr></thead><tbody>
-      ${p.candidates.map((c) => `<tr><td><b>${esc(c.key)}</b> ${esc(c.title)}<div class="small muted">${esc(c.origin)}</div></td><td class="num">${c.points ?? '?'}</td><td>${c.flags.length ? c.flags.map((f) => `<div class="tag ${f.level === 'high' ? 'red' : 'orange'}" style="margin:2px 0;white-space:normal">${esc(f.text)}</div>`).join('') : '<span class="tag green">Prêt</span>'}</td></tr>`).join('')}
-      </tbody></table>
+    <div class="card" id="candidates"><h3>Tickets candidats</h3>
+      <h4>Déjà prévus dans le prochain cycle Linear (${fromBacklog.length})</h4>
+      ${fromBacklog.length ? table(fromBacklog) : '<p class="empty">Aucun ticket n’est encore planifié dans le prochain cycle Linear.</p>'}
+      <h4 style="margin-top:12px">Pas terminés dans le sprint en cours (${fromSprint.length})</h4>
+      ${!fromSprint.length ? '<p class="empty">Tout est terminé.</p>' : nearEnd ? table(fromSprint) : `<details class="tickets"><summary>Voir les ${fromSprint.length} tickets — ils seront à reconsidérer en fin de sprint</summary>${table(fromSprint)}</details>`}
     </div></div>`;
 }
-
 function viewReport() {
   return `<div class="card"><div class="signal-head"><h3>Rapport de sprint (Markdown)</h3><div class="chips"><button class="btn ghost" id="copy-report">Copier</button><a class="btn" href="/api/report/${state.sprintId}.md?${teamQuery()}${state.asOf ? `&asOf=${state.asOf}` : ''}" download="sobrus-copilot-${state.team.toLowerCase()}-${state.sprintId}.md">Télécharger .md</a></div></div><pre class="report">${esc(state.data.report)}</pre></div>`;
 }

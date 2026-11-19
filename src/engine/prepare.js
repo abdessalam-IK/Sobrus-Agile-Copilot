@@ -3,109 +3,164 @@
 // Tout ce qui est produit ici est un brouillon pour le Scrum Master, le PO et l'équipe :
 // des points d'attention et des questions, jamais des décisions.
 
-import { STATUS_LABELS, ACTIVE_STATUSES, deliveryMembers } from './observe.js';
+import { STATUS_LABELS, deliveryMembers } from './observe.js';
+import { agingWip } from './flow.js';
 import { workingDays } from '../lib/calendar.js';
 import { mean, sum, round, pct, quantile } from '../lib/stats.js';
 
 const pts = (i) => i.points || 0;
 
 // ---------------------------------------------------------------------------
-// Daily
+// Daily : qui fait quoi, ce qui a bougé, ce qui coince
 // ---------------------------------------------------------------------------
-function daily(snap, thought, names) {
+const dm = (d) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : '');
+
+function daily(snap, thought, history, holidays, names) {
   const idx = snap.days.filter((d) => d <= snap.asOf).length - 1;
-  const yesterday = snap.days[Math.max(0, idx - 1)];
-  const moved = snap.issues
-    .flatMap((i) => i.history.filter((h) => h.date >= yesterday && h.date <= snap.asOf).map((h) => ({ key: i.key, title: i.title, to: h.to, date: h.date, assignee: i.assignee })));
+  const since = snap.days[Math.max(0, idx - 1)];
+  const previous = history.filter((h) => h.snap.closed && h.snap.sprint.id !== snap.sprint.id).map((h) => h.snap);
+
+  // Ce qui a bougé depuis le dernier jour ouvré : le dernier statut atteint par ticket
+  const moved = [];
+  for (const i of snap.issues) {
+    const steps = i.history.filter((h) => h.date >= since && h.date <= snap.asOf);
+    if (steps.length) moved.push({ key: i.key, note: `→ ${STATUS_LABELS[steps.at(-1).to].toLowerCase()} le ${dm(steps.at(-1).date)}` });
+  }
+  const added = snap.issues.filter((i) => i.addedMidSprint && i.addedDate >= since && i.addedDate <= snap.asOf);
+
+  // Ce qui coince : tickets bloqués, et tickets en cours depuis plus longtemps que d'habitude
   const blocked = snap.issues.filter((i) => i.blockedNow);
-  const stuck = snap.issues.filter((i) => ACTIVE_STATUSES.includes(i.status) && i.ageInStatus >= 3 && !i.blockedNow);
-  const goalOpen = snap.issues.filter((i) => i.goal && !i.done);
+  const aging = snap.closed ? null : agingWip(snap, previous, holidays);
+  const late = (aging?.items || []).filter((x) => x.level !== 'ok' && !blocked.some((i) => i.key === x.key));
+
+  // Qui fait quoi : chaque membre de l'équipe, puis les intervenants extérieurs qui ont un ticket en cours
+  const members = snap.capacity.map((c) => c.member);
+  const guests = [...new Set(snap.issues.filter((i) => !i.done && !members.includes(i.assignee) && i.assignee !== 'non-assigne').map((i) => i.assignee))];
+  const team = [...members, ...guests].map((m) => {
+    const mine = snap.issues.filter((i) => i.assignee === m);
+    return {
+      member: names(m),
+      guest: !members.includes(m),
+      inProgress: mine.filter((i) => !i.done && i.status !== 'todo').map((i) => i.key),
+      todo: mine.filter((i) => i.status === 'todo').length,
+      done: mine.filter((i) => i.done).length,
+      absentToday: (snap.capacity.find((c) => c.member === m)?.absences || []).includes(snap.asOf),
+    };
+  });
+  const unassigned = snap.issues.filter((i) => !i.done && i.assignee === 'non-assigne').map((i) => i.key);
+
   const questions = [
-    ...blocked.map((i) => `${i.key} est bloqué depuis ${i.blockedDays} j (${i.currentBlock?.reason}). Quelle action aujourd’hui, et qui la porte ?`),
-    ...stuck.map((i) => `${i.key} est ${STATUS_LABELS[i.status].toLowerCase()} depuis ${i.ageInStatus} j. ${names(i.assignee)}, de quoi as-tu besoin pour le terminer ?`),
-    goalOpen.length ? `Qu’est-ce qui nous rapproche le plus de l’objectif aujourd’hui : « ${snap.sprint.goal} » ?` : null,
-  ].filter(Boolean);
+    ...blocked.map((i) => `${i.key} est bloqué depuis ${i.blockedDays} j. Quelle action aujourd’hui pour le débloquer, et qui la porte ?`),
+    ...late.filter((x) => x.level === 'risk').map((x) => `${x.key} est en cours depuis ${x.age} j. De quoi ${names(x.assignee)} a-t-il besoin pour le terminer ?`),
+    unassigned.length ? `${unassigned.length} ticket${unassigned.length > 1 ? 's ne sont' : ' n’est'} assigné${unassigned.length > 1 ? 's' : ''} à personne : qui les prend ?` : null,
+    'Quel ticket allons-nous terminer aujourd’hui ?',
+  ].filter(Boolean).slice(0, 4);
+
   return {
     date: snap.asOf,
     day: `${snap.dayIndex}/${snap.totalDays}`,
-    sprintGoal: snap.sprint.goal,
-    moved,
-    blocked: blocked.map((i) => ({ key: i.key, title: i.title, assignee: names(i.assignee), days: i.blockedDays, reason: i.currentBlock?.reason, dependency: i.currentBlock?.dependency })),
-    stuck: stuck.map((i) => ({ key: i.key, title: i.title, assignee: names(i.assignee), status: STATUS_LABELS[i.status], days: i.ageInStatus })),
-    goalProgress: { done: snap.metrics.goalDone, total: snap.metrics.goalTotal, open: goalOpen.map((i) => ({ key: i.key, title: i.title, status: STATUS_LABELS[i.status], blocked: i.blockedNow })) },
+    since,
+    totals: { done: snap.metrics.doneCount, scope: snap.metrics.scopeCount, inProgress: snap.issues.filter((i) => !i.done && i.status !== 'todo').length, todo: snap.issues.filter((i) => i.status === 'todo').length },
+    moved: { issues: moved.map((x) => x.key), notes: Object.fromEntries(moved.map((x) => [x.key, x.note])) },
+    added: { issues: added.map((i) => i.key), notes: Object.fromEntries(added.map((i) => [i.key, `ajouté le ${dm(i.addedDate)}`])) },
+    stuck: {
+      issues: [...blocked.map((i) => i.key), ...late.map((x) => x.key)],
+      notes: Object.fromEntries([
+        ...blocked.map((i) => [i.key, `bloqué depuis ${i.blockedDays} j${i.currentBlock?.reason ? ` : ${i.currentBlock.reason.replace(/^Label « (.*) »$/, '$1')}` : ''}`]),
+        ...late.map((x) => [x.key, `en cours depuis ${x.age} j (d’habitude ${aging.thresholds.p50} j)`]),
+      ]),
+    },
+    team,
+    unassigned,
     forecast: snap.forecast || null,
     questions,
-    tip: 'Le Daily sert à piloter l’objectif du sprint, pas à faire un tour de table de statut : commencez par les tickets les plus proches du « Terminé ».',
   };
 }
 
 // ---------------------------------------------------------------------------
-// Sprint Review
+// Sprint Review : ce qui est livré, ce qui ne l'est pas et pourquoi, les messages à porter
 // ---------------------------------------------------------------------------
 function review(snap, thought, names) {
+  const m = snap.metrics;
   const done = snap.issues.filter((i) => i.done);
   const notDone = snap.issues.filter((i) => !i.done);
-  const byEpic = {};
-  for (const i of done) (byEpic[i.epic] ||= []).push({ key: i.key, title: i.title, points: i.points, goal: i.goal });
-  const reason = (i) => (i.blockedNow || i.currentBlock ? `bloqué (${i.currentBlock?.reason || 'blocage'})` : i.status === 'todo' ? 'non démarré' : i.churn >= 2 ? `besoin modifié en cours de sprint (${STATUS_LABELS[i.status].toLowerCase()})` : STATUS_LABELS[i.status].toLowerCase());
-  const goalReached = snap.metrics.goalTotal > 0 && snap.metrics.goalDone === snap.metrics.goalTotal;
+  // Livré, regroupé par fonctionnalité (ticket parent) ou projet ; le reste dans « Autres tickets »
+  const groups = new Map();
+  for (const i of done) {
+    const g = i.epic && i.epic !== 'Sans epic' ? i.epic : 'Autres tickets';
+    groups.set(g, [...(groups.get(g) || []), i.key]);
+  }
+  const delivered = [...groups].map(([name, keys]) => ({ name, issues: keys }))
+    .sort((x, y) => (x.name === 'Autres tickets') - (y.name === 'Autres tickets') || y.issues.length - x.issues.length);
+  const reason = (i) => (i.blockedNow ? `bloqué${i.currentBlock?.reason ? ` : ${i.currentBlock.reason.replace(/^Label « (.*) »$/, '$1')}` : ''}` : i.status === 'todo' ? 'pas démarré' : 'en cours, pas terminé');
+  const count = (pred) => notDone.filter(pred).length;
+  const features = snap.features || [];
+  const goalTotal = m.goalTotal;
   return {
     anticipated: !snap.closed,
+    day: `${snap.dayIndex}/${snap.totalDays}`,
+    goalSet: !/non renseigné/i.test(snap.sprint.goal || ''),
     goal: snap.sprint.goal,
-    goalStatus: goalReached ? 'atteint' : snap.metrics.goalDone > 0 ? 'partiellement atteint' : 'non atteint',
-    goalDetail: `${snap.metrics.goalDone}/${snap.metrics.goalTotal} éléments clés terminés`,
-    delivered: Object.entries(byEpic).map(([epic, items]) => ({ epic, items, points: sum(items, pts) })),
-    notDelivered: notDone.map((i) => ({ key: i.key, title: i.title, points: i.points, reason: reason(i) })),
-    scopeAdded: snap.issues.filter((i) => i.addedMidSprint).map((i) => ({ key: i.key, title: i.title, points: i.points })),
-    feedback: snap.review?.feedback || [],
+    keyItems: goalTotal ? { done: m.goalDone, total: goalTotal } : null,
     keyMessages: [
-      `${snap.metrics.donePoints} points livrés sur ${snap.metrics.scopePoints} (${pct(snap.metrics.completionRatio)}).`,
-      goalReached ? 'L’objectif du sprint est atteint.' : `L’objectif du sprint n’est pas entièrement atteint (${snap.metrics.goalDone}/${snap.metrics.goalTotal}).`,
-      ...thought.insights.filter((i) => i.severity >= 0.5 && ['dependencies', 'scope', 'predictability'].includes(i.theme)).map((i) => `Point d’attention à partager : ${i.headline}.`),
-    ],
+      `${m.doneCount} ticket${m.doneCount > 1 ? 's' : ''} livré${m.doneCount > 1 ? 's' : ''} sur ${m.scopeCount}${m.scopePoints ? ` (${m.donePoints} point${m.donePoints > 1 ? 's' : ''} estimé${m.donePoints > 1 ? 's' : ''} sur ${m.scopePoints})` : ''}.`,
+      features.length ? `${features.filter((x) => x.complete).length} fonctionnalité${features.filter((x) => x.complete).length > 1 ? 's' : ''} sur ${features.length} entièrement terminée${features.filter((x) => x.complete).length > 1 ? 's' : ''} (tous les sous-tickets livrés).` : null,
+      goalTotal ? (m.goalDone === goalTotal ? `Les ${goalTotal} éléments clés (« commitment prod ») sont livrés.` : `${m.goalDone} élément${m.goalDone > 1 ? 's' : ''} clé${m.goalDone > 1 ? 's' : ''} sur ${goalTotal} livré${m.goalDone > 1 ? 's' : ''} (« commitment prod »).`) : null,
+      m.unplannedCount ? `${m.unplannedCount} ticket${m.unplannedCount > 1 ? 's sont arrivés' : ' est arrivé'} en cours de sprint, en plus du Planning.` : null,
+      notDone.length ? `${notDone.length} ticket${notDone.length > 1 ? 's ne sont pas terminés' : ' n’est pas terminé'} : ${[[count((i) => i.blockedNow), 'bloqué'], [count((i) => !i.blockedNow && i.status !== 'todo'), 'en cours'], [count((i) => !i.blockedNow && i.status === 'todo'), 'pas démarré']].filter(([n]) => n).map(([n, w]) => `${n} ${w}${n > 1 && w !== 'en cours' ? 's' : ''}`).join(', ')}.` : 'Tout ce qui était prévu est livré.',
+    ].filter(Boolean),
+    delivered,
+    notDelivered: { issues: notDone.map((i) => i.key), notes: Object.fromEntries(notDone.map((i) => [i.key, reason(i)])) },
+    feedback: snap.review?.feedback || [],
   };
 }
 
 // ---------------------------------------------------------------------------
-// Rétrospective
+// Rétrospective : les faits du sprint, les sujets à discuter, les actions à tester
 // ---------------------------------------------------------------------------
 function retrospective(snap, thought, history, names) {
-  const timeline = [];
+  // Chronologie regroupée par jour, sans doublons
+  const days = new Map();
+  const day = (d) => days.get(d) || (days.set(d, { date: d, added: new Set(), reopened: new Set(), blocked: new Set(), unblocked: new Set(), keyDone: new Set() }), days.get(d));
   for (const i of snap.issues) {
     for (const b of i.blocks) {
-      timeline.push({ date: b.from, kind: 'block', text: `${i.key} bloqué : ${b.reason}` });
-      if (b.to) timeline.push({ date: b.to, kind: 'unblock', text: `${i.key} débloqué` });
+      day(b.from).blocked.add(i.key);
+      if (b.to) day(b.to).unblocked.add(i.key);
     }
-    if (i.addedMidSprint) timeline.push({ date: i.addedDate, kind: 'scope', text: `Ajout de ${i.key} (+${i.points} pts)` });
-    for (let k = 1; k < i.history.length; k++) if (i.history[k - 1].to === 'done' && i.history[k].to !== 'done') timeline.push({ date: i.history[k].date, kind: 'reopen', text: `${i.key} rouvert` });
-    for (const c of i.changes) timeline.push({ date: c.date, kind: 'change', text: `${i.key} : ${c.field} ${c.from} → ${c.to}` });
-    if (i.goal && i.done) timeline.push({ date: i.doneDate, kind: 'goal', text: `${i.key} terminé (objectif)` });
+    if (i.addedMidSprint) day(i.addedDate).added.add(i.key);
+    for (let k = 1; k < i.history.length; k++) if (i.history[k - 1].to === 'done' && i.history[k].to !== 'done') day(i.history[k].date).reopened.add(i.key);
+    if (i.goal && i.done) day(i.doneDate).keyDone.add(i.key);
   }
-  timeline.sort((a, b) => a.date.localeCompare(b.date));
+  const phrase = (set, one, many) => (set.size ? `${set.size} ${set.size > 1 ? many : one} (${[...set].join(', ')})` : null);
+  const timeline = [...days.values()].sort((x, y) => x.date.localeCompare(y.date)).map((d) => ({
+    date: d.date,
+    events: [
+      phrase(d.added, 'ticket ajouté', 'tickets ajoutés'),
+      phrase(d.reopened, 'ticket rouvert', 'tickets rouverts'),
+      phrase(d.blocked, 'ticket bloqué', 'tickets bloqués'),
+      phrase(d.unblocked, 'ticket débloqué', 'tickets débloqués'),
+      phrase(d.keyDone, 'élément clé livré', 'éléments clés livrés'),
+    ].filter(Boolean),
+  })).filter((d) => d.events.length);
 
   const prev = history.filter((h) => h.snap.closed && h.snap.sprint.id !== snap.sprint.id).at(-1);
   const previousActions = (prev?.snap.retro?.actions || []).map((a) => ({ ...a, owner: names(a.owner) }));
   const m = snap.metrics;
   return {
     anticipated: !snap.closed,
+    day: `${snap.dayIndex}/${snap.totalDays}`,
     dataCards: [
-      { label: 'Points livrés', value: `${m.donePoints}/${m.scopePoints}` },
-      { label: 'Tickets planifiés livrés', value: pct(m.planningAccuracy) },
-      { label: 'Tickets imprévus', value: `${m.unplannedCount} (${pct(m.unplannedRatio)})` },
-      { label: 'Cycle time moyen', value: m.avgCycleTime ? `${round(m.avgCycleTime)} j` : '—' },
-      { label: 'Jours-ticket bloqués', value: m.blockedIssueDays },
-      { label: 'Ajouts en cours de sprint', value: `+${m.addedPoints} pts` },
-      { label: 'Tickets rouverts', value: m.reopenCount },
+      { label: 'Tickets livrés', value: `${m.doneCount} / ${m.scopeCount}` },
+      { label: 'Tickets planifiés livrés', value: m.planningAccuracy == null ? '—' : `${m.plannedDoneCount} / ${m.plannedCount}`, hint: pct(m.planningAccuracy) },
+      { label: 'Tickets arrivés en cours de sprint', value: m.unplannedCount, hint: `${pct(m.unplannedRatio)} du sprint` },
+      { label: 'Tickets rouverts', value: m.reopenCount, hint: 'revenus après « terminé »' },
+      { label: 'Tickets bloqués à un moment', value: snap.issues.filter((i) => i.blockedDays > 0).length },
     ],
     timeline,
     previousActions,
-    themes: thought.insights.slice(0, 4).map((i) => ({ label: i.label, headline: i.headline, level: i.level.label })),
-    questions: [...new Set([...thought.insights.flatMap((i) => i.questions), 'Qu’est-ce qui a bien fonctionné et que nous voulons protéger ?'])].slice(0, 7),
-    experiments: thought.recommendations.slice(0, 2).map((r) => ({
-      hypothesis: `Si nous appliquons « ${r.text} », alors « ${r.because} » devrait diminuer au prochain sprint.`,
-      owner: r.owner,
-      measure: 'À vérifier automatiquement par le Copilot lors de la prochaine analyse.',
-    })),
+    topics: thought.signals.slice(0, 3).map((sg) => ({ title: sg.title, narrative: sg.narrative, question: sg.question, issues: sg.issues, notes: sg.notes, rows: sg.rows })),
+    questions: ['Qu’est-ce qui a bien fonctionné et que nous voulons garder ?', ...thought.signals.slice(0, 3).map((sg) => sg.question)].filter((q, i, a) => a.indexOf(q) === i).slice(0, 4),
+    experiments: thought.recommendations.slice(0, 2).map((r) => ({ action: r.text, owner: r.owner, measure: `À vérifier au prochain sprint : « ${r.because} » doit s’améliorer.` })),
   };
 }
 
@@ -148,7 +203,7 @@ function planning(snap, thought, history, dataset, names) {
     if (item.notes) flags.push({ level: 'medium', text: item.notes });
     return { key: item.key, title: item.title, points: item.points, origin, flags, ready: !flags.some((f) => f.level === 'high') };
   };
-  const carry = snap.issues.filter((i) => !i.done).map((i) => challenge({ ...i, carriedOver: i.carriedOver + 1, dependency: i.blocks.find((b) => b.to == null)?.dependency, dependencyConfirmed: false }, 'Report du sprint'));
+  const carry = snap.issues.filter((i) => !i.done).map((i) => challenge({ ...i, carriedOver: i.carriedOver, dependency: i.blocks.find((b) => b.to == null)?.dependency, dependencyConfirmed: false }, 'Non terminé dans le sprint en cours'));
   const isLatest = idx === dataset.sprints.length - 1;
   const backlog = isLatest ? (dataset.backlog || []).sort((a, b) => a.priority - b.priority).map((b) => challenge(b, 'Backlog produit')) : [];
   const candidates = [...carry, ...backlog];
@@ -169,7 +224,6 @@ function planning(snap, thought, history, dataset, names) {
       'Quel objectif de sprint unique et vérifiable voulons-nous viser ?',
       'Quels éléments sont prêts (critères d’acceptation, dépendances confirmées) et lesquels ne le sont pas ?',
       range ? `Sommes-nous prêts à nous engager autour de ${range.recommended} points, en dessous de ce que nous voudrions ?` : null,
-      'Quelle action de la dernière rétrospective intégrons-nous dans ce sprint ?',
     ].filter(Boolean),
   };
 }
@@ -253,7 +307,7 @@ export function reportMarkdown({ snap, thought, prepared, learned, flow, objecti
 export function prepare(snap, thought, history, dataset) {
   const names = (id) => dataset.team.find((m) => m.id === id)?.name || id;
   return {
-    daily: daily(snap, thought, names),
+    daily: daily(snap, thought, history, dataset.meta?.holidays || [], names),
     review: review(snap, thought, names),
     retro: retrospective(snap, thought, history, names),
     planning: planning(snap, thought, history, dataset, names),
