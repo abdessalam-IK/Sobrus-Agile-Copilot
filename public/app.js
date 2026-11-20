@@ -624,6 +624,34 @@ function portfolioCard(p) {
     <p class="small muted" style="margin-top:8px">Heures estimées = estimations des tickets du sprint, ${p.hoursPerPoint} point = ${p.hoursPerPoint} h. Heures disponibles = jours ouvrés × ${p.hoursPerDay} h, congés et fériés déduits, moins les réunions (Sheet « Taux d’Occupation », projetées sur tout le sprint). Le nombre de tickets ne compte pas. « n.e. » = tickets non estimés, non comptés.</p></div>`;
 }
 
+/**
+ * Charge de l'équipe du projet sur le sprint, en heures : un développeur par ligne.
+ * Sprint en cours : tous projets confondus (vue Sobrus) ; sprint passé : ce projet seulement.
+ * Recalculé à chaque synchronisation Linear (tickets ajoutés, réestimés, réassignés).
+ */
+function teamLoadCard(o, portfolio) {
+  const members = o.load.filter((l) => !l.outside);
+  if (!members.length) return '';
+  const active = o.sprint.status === 'active' && portfolio?.devs?.length;
+  const rows = members.map((l) => {
+    const d = active ? portfolio.devs.find((x) => x.id === l.member) : null;
+    const r = d
+      ? { planned: d.plannedHours, added: d.addedHours, dev: d.devHours, presence: d.presenceHours, meetings: d.meetingHours, ratio: d.ratio, over: d.overloaded, unest: d.unestimated, split: d.projects.length > 1 ? d.projects.map((p) => `${p.product} ${p.hours || !p.unestimated ? hrs(p.hours) : `(${p.unestimated} non estimé${p.unestimated > 1 ? 's' : ''})`}`).join(' + ') : '' }
+      : { planned: l.plannedHours, added: l.addedHours, dev: l.devHours, presence: l.presenceHours, meetings: l.meetingHours, ratio: l.occupancy, over: l.occupancy != null && l.occupancy > 1, unest: l.unestimated, split: '' };
+    const width = Math.min(100, Math.round((r.ratio || 0) * 100));
+    return `<tr${r.over ? ' class="overloaded"' : ''}>
+      <td><b>${esc(name(l.member))}</b> <span class="small muted">${esc(role(l.member))}</span>${l.upcomingAbsences.length ? ` <span class="tag orange">✈ ${l.upcomingAbsences.length} j d’absence à venir</span>` : ''}</td>
+      <td class="num"><b>${hrs(r.planned)}</b>${r.added ? ` <div class="small muted">dont ${hrs(r.added)} ajoutée${r.added >= 2 ? 's' : ''} en cours de sprint</div>` : ''}${r.split ? ` <div class="small muted">${esc(r.split)}</div>` : ''}${r.unest ? ` <div class="small muted">+ ${r.unest} ticket${r.unest > 1 ? 's' : ''} non estimé${r.unest > 1 ? 's' : ''}</div>` : ''}</td>
+      <td class="num">${hrs(r.dev)}${r.meetings ? ` <div class="small muted">${hrs(r.presence)} − ${hrs(r.meetings)} réunions</div>` : ''}</td>
+      <td style="min-width:150px"><div class="bar"><span style="width:${width}%;background:var(--${r.over ? 'critical' : r.ratio > 0.85 ? 'attention' : 'ok'})"></span></div>${occTag(r.ratio, r.over)}</td>
+    </tr>`;
+  }).join('');
+  const over = members.filter((l) => { const d = active ? portfolio.devs.find((x) => x.id === l.member) : null; return d ? d.overloaded : l.occupancy > 1; }).length;
+  return `<div class="section-title" id="team-load"><h2>Charge de l’équipe — ${esc(o.sprint.name)}</h2><span class="muted small">En heures, du ${dm(o.sprint.start)} au ${dm(o.sprint.end)} · mis à jour à chaque synchronisation Linear</span></div>
+    <div class="card"><table class="team-load"><thead><tr><th>Développeur</th><th class="num">Heures estimées</th><th class="num">Heures disponibles</th><th>Occupation</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="small muted" style="margin-top:8px">${over ? `<b style="color:var(--critical)">${over} développeur${over > 1 ? 's' : ''} au-delà de ${Math.round((portfolio?.overloadRatio ?? 1) * 100)} %.</b> ` : ''}Heures estimées = estimations de ses tickets du sprint (1 point = 1 h)${active ? ', tous projets confondus' : ''}. Heures disponibles = jours ouvrés × 8 h, congés et fériés déduits, moins les réunions. Le nombre de tickets ne compte pas.</p></div>`;
+}
+
 /** Personnes hors équipe qui ont des tickets dans le sprint : leur intervention, sans compter dans la capacité. */
 function outsideList(load, kind, title) {
   const rows = load.filter((l) => l.outside && l.kind === kind && l.tickets);
@@ -664,11 +692,8 @@ function viewObserve() {
     </div>
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card"><h3>Burndown</h3>${burndownChart(o)}</div>
-      <div class="card"><h3>Charge de l’équipe</h3>
-        ${o.load.filter((l) => !l.outside).map((l) => { const scale = Math.max(l.devHours || 0, l.plannedHours, 1); return `<div class="bar-row"><span>${esc(name(l.member))} <span class="small muted">${esc(role(l.member))}</span></span><div class="bar"><span style="width:${(l.donePoints * (l.plannedHours / Math.max(1, l.donePoints + l.remainingPoints)) / scale) * 100}%;background:var(--brand)"></span><span style="width:${(l.remainingPoints * (l.plannedHours / Math.max(1, l.donePoints + l.remainingPoints)) / scale) * 100}%;background:var(--attention)"></span></div><span class="small muted">${hrs(l.plannedHours)} estimées / ${hrs(l.devHours)} dispo ${occTag(l.occupancy, l.occupancy != null && l.occupancy > 1)}${l.unestimated ? ` · ${l.unestimated} n.e.` : ''}${l.upcomingAbsences.length ? ` · ✈ ${l.upcomingAbsences.length} j` : ''}</span></div>`; }).join('')}
-        <div class="chips small" style="margin-top:8px"><span class="tag brand">■ terminé</span><span class="tag orange">■ restant</span><span class="muted">barre pleine = heures disponibles du sprint · ✈ absences à venir</span></div>
-        ${outsideList(o.load, 'guest', 'Interventions d’autres équipes')}
-        ${outsideList(o.load, 'other', 'Autres personnes assignées (PM, PO, design…)')}
+      <div class="card"><h3>Hors équipe</h3>
+        ${outsideList(o.load, 'guest', 'Interventions d’autres équipes') + outsideList(o.load, 'other', 'Autres personnes assignées (PM, PO, design…)') || '<p class="empty">Aucune personne hors équipe sur ce sprint.</p>'}
       </div>
     </div>
     <div class="section-title" id="board"><h2>Board du sprint</h2><span class="muted small">Bordure rouge : bloqué · orange : immobile ≥ 3 jours</span></div>
@@ -677,6 +702,7 @@ function viewObserve() {
       return `<div class="column"><h4>${STATUS[c]}<span>${items.length} · ${items.reduce((a, i) => a + (i.points || 0), 0)} pts</span></h4>${items.map(ticket).join('') || '<div class="empty small">—</div>'}</div>`;
     }).join('')}</div>
     ${featuresCard(o)}
+    ${teamLoadCard(o, state.data.portfolio)}
     ${portfolioCard(state.data.portfolio)}
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card" id="commit"><h3>Engagement au Sprint Planning</h3>
@@ -734,6 +760,7 @@ function viewOverview() {
   const watchList = watch.map((sg) => `<li class="watch-item"><b>${esc(sg.title)}</b><div class="small muted">${esc(sg.narrative)}</div>${signalTickets(sg) || (sg.evidence?.length ? `<ul class="small">${sg.evidence.slice(0, 4).map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : '')}</li>`).join('');
   const actions = t.recommendations.slice(0, 3);
   return `
+    ${teamLoadCard(state.data.observe, state.data.portfolio)}
     ${points ? `<div class="section-title"><h2>Ce qui demande votre attention</h2></div><div class="grid">${points}</div>` : '<div class="card"><h3>Aucun point urgent</h3><p class="muted">Rien ne demande d’action immédiate. Les points ci-dessous sont à garder à l’œil.</p></div>'}
     ${watchList ? `<div class="section-title"><h2>À surveiller</h2><span class="muted small">Moins urgent, à garder à l’œil</span></div><div class="card"><ul class="watch">${watchList}</ul></div>` : ''}
     ${actions.length ? `<div class="section-title"><h2>Actions proposées</h2><span class="muted small">À discuter avec l’équipe, qui décide</span></div>

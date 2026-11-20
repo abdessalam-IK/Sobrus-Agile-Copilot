@@ -187,6 +187,7 @@ export function observeSprint(dataset, sprintId, asOf) {
       meetingHours: meetingHours == null ? null : Math.round(meetingHours * 10) / 10,
       devHours: Math.round(devHours * 10) / 10,
       plannedHours,
+      addedHours: sum(mine.filter((i) => i.addedMidSprint), pts) * HOURS_PER_POINT, // ajoutées après le Planning
       unestimated: mine.filter((i) => i.points == null).length,
       tickets: mine.length,
       occupancy: devHours ? plannedHours / devHours : null,
