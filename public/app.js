@@ -773,12 +773,12 @@ function prepDaily(d) {
       <div class="card"><h3>Arrivés dans le sprint depuis le ${dm(d.since)}</h3>${ticketsOpen(d.added, 'Aucun nouveau ticket.')}</div>
     </div>`;
 }
-/** Un message clé : étiquette colorée, phrase, puis les tickets concernés (5 visibles, le reste repliable). */
+/** Un message clé : étiquette colorée et phrase ; ses tickets restent repliés (liste déroulante). */
 function keyMessage(msg) {
   const row = (x) => `<li>${ticketLink(x.key)} ${esc(x.title)}${x.note ? ` <span class="small muted">— ${esc(x.note)}</span>` : ''}</li>`;
-  const shown = msg.items.slice(0, 5).map(row).join('');
-  const more = msg.items.length > 5 ? `<details class="tickets"><summary>+ ${msg.items.length - 5} autre${msg.items.length - 5 > 1 ? 's' : ''}</summary><ul class="km-items">${msg.items.slice(5).map(row).join('')}</ul></details>` : '';
-  return `<div class="km"><div><span class="tag ${msg.tone}">${esc(msg.label)}</span> ${esc(msg.text)}</div>${shown ? `<ul class="km-items">${shown}</ul>` : ''}${more}</div>`;
+  const n = msg.items.length;
+  const tickets = n ? `<details class="tickets"><summary>Voir ${n > 1 ? `les ${n} tickets` : 'le ticket'}</summary><ul class="km-items">${msg.items.map(row).join('')}</ul></details>` : '';
+  return `<div class="km"><div><span class="tag ${msg.tone}">${esc(msg.label)}</span> ${esc(msg.text)}</div>${tickets}</div>`;
 }
 
 /** Ticket parent : vert si tous ses sous-tickets sont livrés, orange sinon ; le détail des sous-tickets se déplie. */
@@ -803,7 +803,7 @@ function prepReview(r) {
   const d = r.delivered;
   const delivered = [
     reachSection('Atteint en PROD', 'green', 'statut « Vérifié en PROD »', d.prod),
-    reachSection('Atteint en OVH', 'brand', 'statut « Done à tester », « Vérifié par QA » ou « Vérifié en OVH »', d.ovh),
+    reachSection('Atteint en OVH', 'ovh', 'statut « Done à tester », « Vérifié par QA » ou « Vérifié en OVH »', d.ovh),
     reachSection('Non atteint, livré en partie', 'orange', 'parent dans un autre statut, au moins un sous-ticket livré', { features: d.partial, tickets: { issues: [] } }),
   ].join('');
   return `${inProgressBanner(r, 'la Review')}

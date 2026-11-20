@@ -306,3 +306,4 @@ details.feat { border: 1px solid var(--border); border-left: 4px solid var(--bor
 details.feat.full { border-left-color: var(--ok); background: var(--ok-soft); }
 details.feat.partial { border-left-color: var(--attention); background: var(--attention-soft); }
 details.feat summary { cursor: pointer; font-size: 13px; line-height: 1.6; }
+.tag.ovh { background: var(--brand-soft); color: var(--brand); border-color: transparent; }

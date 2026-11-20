@@ -152,7 +152,7 @@ function review(snap, thought, names) {
   if (prodItems.length) messages.push({ tone: 'green', label: 'En PROD', text: `${count(prod)} vérifié${done(prodItems.length)} en production : la valeur est chez les clients.`, items: prodItems });
   if (ovhItems.length) {
     const open = ovh.features.filter((f) => !f.complete).length;
-    messages.push({ tone: 'brand', label: 'Sur OVH', text: `${count(ovh)} atteint${done(ovhItems.length)} sur OVH, en attente de mise en PROD${open ? ` (dont ${plural(open, 'fonctionnalité')} avec des sous-tickets encore ouverts)` : ''}.`, items: ovhItems });
+    messages.push({ tone: 'ovh', label: 'Sur OVH', text: `${count(ovh)} atteint${done(ovhItems.length)} sur OVH, en attente de mise en PROD${open ? ` (dont ${plural(open, 'fonctionnalité')} avec des sous-tickets encore ouverts)` : ''}.`, items: ovhItems });
   }
   if (!prodItems.length && !ovhItems.length) messages.push({ tone: 'red', label: 'Rien d’atteint', text: 'Aucune fonctionnalité ni aucun ticket n’a encore atteint OVH ou la PROD.', items: [] });
   if (partial.length) {
