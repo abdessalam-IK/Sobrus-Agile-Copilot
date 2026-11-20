@@ -606,20 +606,22 @@ function viewObjectives() {
       <details><summary>Voir la liste</summary><ul>${proj.stale.map((p) => `<li><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a> <span class="muted small">— ${esc(p.status || '')}, cible ${dm(p.targetDate)}/${p.targetDate.slice(2, 4)}, ${pct(p.progress)} d’avancement</span></li>`).join('')}</ul></details></div>` : ''}`;
 }
 
-/** Charge de chaque développeur, en additionnant ses estimations sur tous les projets suivis. */
+/** Charge de chaque développeur en heures sur le sprint, tous projets suivis. */
+const hrs = (x) => `${Math.round(x)} h`;
+const occTag = (ratio, overloaded) => (ratio == null ? '<span class="muted">—</span>' : `<span class="tag ${overloaded ? 'red' : ratio > 0.85 ? 'orange' : 'green'}">${overloaded ? 'surcharge · ' : ''}${Math.round(ratio * 100)} %</span>`);
 function portfolioCard(p) {
   if (!p?.devs?.length) return '';
   const projects = p.projects.map((x) => x.product);
   const rows = p.devs.map((d) => `<tr${d.overloaded ? ' class="overloaded"' : ''}>
     <td><b>${esc(d.name)}</b>${d.multiProject ? ' <span class="tag brand">multi-projets</span>' : ''}</td>
-    ${projects.map((name) => { const x = d.projects.find((y) => y.product === name); return `<td class="num">${x ? `${x.points}${x.unestimated ? ` <span class="small muted">+${x.unestimated} n.e.</span>` : ''}${x.intervention ? ' <span class="tag">intervention</span>' : ''}` : '<span class="muted">—</span>'}</td>`; }).join('')}
-    <td class="num"><b>${d.total}</b></td>
-    <td class="num">${d.capacityPoints != null ? `~${Math.round(d.capacityPoints)}` : '—'}</td>
-    <td>${d.overloaded ? `<span class="tag red">surcharge ×${r2(d.ratio)}</span>` : d.ratio != null ? `<span class="tag ${d.ratio > 1 ? 'orange' : 'green'}">×${r2(d.ratio)}</span>` : ''}</td>
+    ${projects.map((name) => { const x = d.projects.find((y) => y.product === name); return `<td class="num">${x ? `${hrs(x.hours)}${x.unestimated ? ` <span class="small muted">+${x.unestimated} n.e.</span>` : ''}${x.intervention ? ' <span class="tag">intervention</span>' : ''}` : '<span class="muted">—</span>'}</td>`; }).join('')}
+    <td class="num"><b>${hrs(d.plannedHours)}</b></td>
+    <td class="num">${hrs(d.devHours)}${d.meetingHours ? ` <span class="small muted">(${hrs(d.presenceHours)} − ${hrs(d.meetingHours)} réunions)</span>` : ''}</td>
+    <td>${occTag(d.ratio, d.overloaded)}</td>
   </tr>`).join('');
-  return `<div class="section-title"><h2>Charge des développeurs, tous projets</h2><span class="muted small">Estimations de chaque développeur sur tous les projets du sprint · surcharge au-delà de ×${r2(p.overloadRatio)}</span></div>
-    <div class="card"><table><thead><tr><th>Développeur</th>${projects.map((n) => `<th class="num">${esc(n)}</th>`).join('')}<th class="num">Total (pts)</th><th class="num">Absorbable</th><th>Charge</th></tr></thead><tbody>${rows}</tbody></table>
-    <p class="small muted" style="margin-top:8px">Absorbable = jours disponibles (congés et fériés déduits) × rythme de référence de ${r2(p.rate)} point/jour, mesuré sur les 3 derniers sprints de tous les projets. « n.e. » = tickets non estimés, non comptés dans le total.</p></div>`;
+  return `<div class="section-title"><h2>Charge des développeurs, tous projets</h2><span class="muted small">En heures sur la durée du sprint · surcharge au-delà de ${Math.round(p.overloadRatio * 100)} %</span></div>
+    <div class="card"><table><thead><tr><th>Développeur</th>${projects.map((n) => `<th class="num">${esc(n)}</th>`).join('')}<th class="num">Heures estimées</th><th class="num">Heures disponibles</th><th>Occupation</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="small muted" style="margin-top:8px">Heures estimées = estimations des tickets du sprint, ${p.hoursPerPoint} point = ${p.hoursPerPoint} h. Heures disponibles = jours ouvrés × ${p.hoursPerDay} h, congés et fériés déduits, moins les réunions (Sheet « Taux d’Occupation », projetées sur tout le sprint). Le nombre de tickets ne compte pas. « n.e. » = tickets non estimés, non comptés.</p></div>`;
 }
 
 /** Personnes hors équipe qui ont des tickets dans le sprint : leur intervention, sans compter dans la capacité. */
@@ -645,7 +647,6 @@ function viewObserve() {
   const o = state.data.observe;
   const m = o.metrics;
   const cols = ['todo', 'in_progress', 'review', 'done'];
-  const maxLoad = Math.max(1, ...o.load.map((l) => l.remainingPoints + l.donePoints));
   const committed = o.issues.filter((i) => i.committed);
   return `
     <div class="section-title" id="kpis"><h2>Indicateurs du sprint</h2><span class="muted small">Données au ${dm(o.asOf)} · ${o.issues.length} tickets</span></div>
@@ -664,8 +665,8 @@ function viewObserve() {
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card"><h3>Burndown</h3>${burndownChart(o)}</div>
       <div class="card"><h3>Charge de l’équipe</h3>
-        ${o.load.filter((l) => !l.outside).map((l) => `<div class="bar-row"><span>${esc(name(l.member))} <span class="small muted">${esc(role(l.member))}</span></span><div class="bar"><span style="width:${(l.donePoints / maxLoad) * 100}%;background:var(--brand)"></span><span style="width:${(l.remainingPoints / maxLoad) * 100}%;background:var(--attention)"></span></div><span class="small muted">${l.donePoints}/${l.donePoints + l.remainingPoints} pts${l.upcomingAbsences.length ? ` · ✈ ${l.upcomingAbsences.length} j` : ''}</span></div>`).join('')}
-        <div class="chips small" style="margin-top:8px"><span class="tag brand">■ terminé</span><span class="tag orange">■ restant</span><span class="muted">✈ absences à venir</span></div>
+        ${o.load.filter((l) => !l.outside).map((l) => { const scale = Math.max(l.devHours || 0, l.plannedHours, 1); return `<div class="bar-row"><span>${esc(name(l.member))} <span class="small muted">${esc(role(l.member))}</span></span><div class="bar"><span style="width:${(l.donePoints * (l.plannedHours / Math.max(1, l.donePoints + l.remainingPoints)) / scale) * 100}%;background:var(--brand)"></span><span style="width:${(l.remainingPoints * (l.plannedHours / Math.max(1, l.donePoints + l.remainingPoints)) / scale) * 100}%;background:var(--attention)"></span></div><span class="small muted">${hrs(l.plannedHours)} estimées / ${hrs(l.devHours)} dispo ${occTag(l.occupancy, l.occupancy != null && l.occupancy > 1)}${l.unestimated ? ` · ${l.unestimated} n.e.` : ''}${l.upcomingAbsences.length ? ` · ✈ ${l.upcomingAbsences.length} j` : ''}</span></div>`; }).join('')}
+        <div class="chips small" style="margin-top:8px"><span class="tag brand">■ terminé</span><span class="tag orange">■ restant</span><span class="muted">barre pleine = heures disponibles du sprint · ✈ absences à venir</span></div>
         ${outsideList(o.load, 'guest', 'Interventions d’autres équipes')}
         ${outsideList(o.load, 'other', 'Autres personnes assignées (PM, PO, design…)')}
       </div>
@@ -824,7 +825,7 @@ function prepRetro(r) {
     <div class="grid cols-2" style="margin-top:16px">
       <div class="card"><h3>Sujets à discuter</h3>${topics || '<p class="empty">Aucun sujet marquant.</p>'}</div>
       <div>
-        <div class="card"><h3>Questions pour l’équipe</h3>${r.questions.map((q) => `<div class="question">${esc(q)}</div>`).join('')}</div>
+        <div class="card"><h3>Questions pour l’équipe</h3><p class="small muted">Chaque question part d’un fait du sprint, à lire avant de la poser.</p>${r.questions.map((q) => `<div class="question"><span class="tag ${{ 'À garder': 'green', 'À améliorer': 'orange', 'Actions passées': 'ovh' }[q.theme] || 'neutral'}">${esc(q.theme)}</span> ${esc(q.question)}${q.fact ? `<div class="small muted" style="margin-top:4px">${esc(q.fact)}</div>` : ''}</div>`).join('')}</div>
         <div class="card" style="margin-top:16px"><h3>Actions à tester au prochain sprint</h3>${list(r.experiments.map((e) => `<b>${esc(e.action)}</b> <span class="muted small">— ${esc(e.owner)}</span><div class="small muted">${esc(e.measure)}</div>`), 'Aucune action proposée.')}</div>
         <div class="card" style="margin-top:16px"><h3>Actions de la rétro précédente</h3>${list(r.previousActions.map((a) => `${esc(a.text)} — ${esc(a.owner)} <span class="tag ${a.status === 'done' ? 'green' : a.status === 'in_progress' ? 'orange' : 'red'}">${a.status === 'done' ? 'réalisée' : a.status === 'in_progress' ? 'en cours' : 'non démarrée'}</span>`), 'Aucune action de rétro enregistrée pour le sprint précédent.')}</div>
       </div>

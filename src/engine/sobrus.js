@@ -50,13 +50,12 @@ const TOPICS = {
   quality: 'Des tickets terminés reviennent en développement',
   forecast_risk: 'Risque de ne pas tout terminer d’ici la fin du sprint',
   goal_at_risk: 'Des éléments clés du sprint ne sont pas terminés',
-  overload: 'Des développeurs sont en surcharge',
+  overload: 'Des développeurs ont plus d’heures estimées que d’heures disponibles',
   aging_wip: 'Des tickets traînent en cours de développement',
   active_blockers: 'Des tickets sont bloqués',
   carryover: 'Des tickets passent de sprint en sprint',
   unlinked_work: 'Le travail livré n’est pas relié aux objectifs',
   feature_gap: 'Des fonctionnalités ne peuvent pas se terminer ce sprint',
-  concentration: 'Le travail restant repose sur une seule personne',
   planning_accuracy: 'Le Planning n’est pas tenu',
   planning_share: 'Le Planning ne reflète pas le travail réel',
   estimation_gap: 'Beaucoup de tickets ne sont pas estimés',
@@ -85,7 +84,7 @@ function decisions(items, overloaded, limit = 5) {
       severity: Math.min(1, 0.5 + 0.1 * overloaded.length),
       action: 'Arbitrer la charge de ces personnes avec les PO concernés avant qu’elle ne se traduise en reports.',
       owner: 'Product Owners + Scrum Master',
-      projects: [{ team: null, product: overloaded.flatMap((d) => d.projects).filter((p, i, a) => a.indexOf(p) === i).join(', '), problem: `${overloaded.length} développeur${overloaded.length > 1 ? 's' : ''} en surcharge : ${overloaded.map((d) => `${d.name} (${d.projects.join(' + ')}, ×${String(d.ratio).replace('.', ',')})`).join(', ')}` }],
+      projects: [{ team: null, product: overloaded.flatMap((d) => d.projects).filter((p, i, a) => a.indexOf(p) === i).join(', '), problem: `${overloaded.length} développeur${overloaded.length > 1 ? 's' : ''} en surcharge : ${overloaded.map((d) => `${d.name} (${Math.round(d.plannedHours)} h estimées pour ${Math.round(d.devHours)} h disponibles, ${Math.round(d.ratio * 100)} %)`).join(', ')}` }],
     });
   }
   return out.sort((a, b) => b.severity - a.severity || b.projects.length - a.projects.length).slice(0, limit);
@@ -106,6 +105,8 @@ export function sobrusOverview(datasets, portfolio) {
   const overloaded = (portfolio?.devs || []).filter((d) => d.overloaded).map((d) => ({
     name: d.name,
     ratio: d.ratio,
+    plannedHours: d.plannedHours,
+    devHours: d.devHours,
     projects: d.projects.map((p) => p.product),
   }));
   return {

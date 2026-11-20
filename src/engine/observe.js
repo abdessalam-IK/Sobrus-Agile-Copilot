@@ -6,6 +6,11 @@ import { workingDays, workingDaysBetween, clampDate } from '../lib/calendar.js';
 import { sum, mean } from '../lib/stats.js';
 
 export const ACTIVE_STATUSES = ['in_progress', 'review'];
+
+// Charge en heures (règle Sobrus, comme le Sheet « Taux d'Occupation ») : 1 point estimé = 1 heure,
+// une journée de présence = 8 heures. Les heures de développement disponibles = présence − réunions.
+export const HOURS_PER_DAY = Number(process.env.HOURS_PER_DAY || 8);
+export const HOURS_PER_POINT = Number(process.env.HOURS_PER_POINT || 1);
 export const STATUS_LABELS = { todo: 'À faire', in_progress: 'En cours', review: 'En revue', done: 'Terminé' };
 
 export function statusAt(issue, date) {
@@ -169,9 +174,22 @@ export function observeSprint(dataset, sprintId, asOf) {
 
   const load = capacity.map((c) => {
     const mine = issues.filter((i) => i.assignee === c.member);
+    // Heures de réunion du Sheet (cumul à date) ; sprint en cours : projetées sur toute la durée du sprint
+    const meetSoFar = sprint.meetingHours?.[c.member];
+    const meetingHours = meetSoFar == null ? null : closed || !elapsedDays.length ? meetSoFar : (meetSoFar * days.length) / elapsedDays.length;
+    const presenceHours = c.days * HOURS_PER_DAY;
+    const devHours = Math.max(0, presenceHours - (meetingHours || 0));
+    const plannedHours = sum(mine, pts) * HOURS_PER_POINT;
     return {
       member: c.member,
       capacityDays: c.days,
+      presenceHours,
+      meetingHours: meetingHours == null ? null : Math.round(meetingHours * 10) / 10,
+      devHours: Math.round(devHours * 10) / 10,
+      plannedHours,
+      unestimated: mine.filter((i) => i.points == null).length,
+      tickets: mine.length,
+      occupancy: devHours ? plannedHours / devHours : null,
       remainingPoints: sum(mine.filter((i) => !i.done), pts),
       donePoints: sum(mine.filter((i) => i.done), pts),
       wip: mine.filter((i) => ACTIVE_STATUSES.includes(i.status)).length,

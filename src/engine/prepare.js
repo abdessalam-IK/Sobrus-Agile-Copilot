@@ -191,6 +191,68 @@ function review(snap, thought, names) {
 // ---------------------------------------------------------------------------
 // Rétrospective : les faits du sprint, les sujets à discuter, les actions à tester
 // ---------------------------------------------------------------------------
+/**
+ * Questions à poser aux développeurs pendant la rétro : chacune part d'un fait chiffré du sprint.
+ * Ordre : ce qui a marché (à garder), ce qui a coincé (à améliorer), les actions passées, puis une question de clôture.
+ */
+function retroQuestions(snap, thought, previousActions, names) {
+  const m = snap.metrics;
+  const qs = [];
+  const add = (theme, fact, question, weight = 0) => qs.push({ theme, fact, question, weight });
+  const s = (n) => (n > 1 ? 's' : '');
+
+  // À garder : ce qui a atteint OVH ou la PROD
+  const reached = (snap.parents || []).filter((p) => reach(p.state) !== 'none' && p.complete);
+  if (reached.length) {
+    const best = reached[0];
+    add('À garder', `${reached.length} fonctionnalité${s(reached.length)} entièrement livrée${s(reached.length)} jusqu’à OVH ou la PROD, dont ${best.key} « ${best.title} ».`, `Qu’est-ce qui a permis de livrer ${best.key} de bout en bout, et que l’on veut refaire sur les prochaines fonctionnalités ?`, 1);
+  } else if (m.doneCount) {
+    add('À garder', `${m.doneCount} ticket${s(m.doneCount)} livré${s(m.doneCount)} sur ${m.scopeCount}.`, 'Sur quels tickets avez-vous trouvé que l’équipe travaillait bien ensemble ? Pourquoi ?', 1);
+  }
+
+  // À améliorer : chaque question n'apparaît que si le fait le justifie
+  const nearEnd = snap.closed || snap.dayIndex >= snap.totalDays - 2; // en milieu de sprint, ce ratio n'a pas de sens
+  if (nearEnd && m.plannedCount && m.planningAccuracy != null && m.planningAccuracy < 0.8) {
+    add('À améliorer', `${m.plannedDoneCount} ticket${s(m.plannedDoneCount)} du Planning livré${s(m.plannedDoneCount)} sur ${m.plannedCount} (${pct(m.planningAccuracy)}).`, 'Pour les tickets du Planning non livrés : qu’est-ce qui a manqué — estimation, dépendance, imprévu, ticket pas assez clair ?', 1 - m.planningAccuracy);
+  }
+  const added = snap.issues.filter((i) => i.addedMidSprint);
+  if (added.length && m.unplannedRatio >= 0.15) {
+    const bugs = added.filter((i) => i.type === 'bug').length;
+    add('À améliorer', `${added.length} ticket${s(added.length)} arrivé${s(added.length)} en cours de sprint${bugs ? `, dont ${bugs} bug${s(bugs)}` : ''} (${pct(m.unplannedRatio)} du sprint).`, 'Parmi ces imprévus, lesquels devaient vraiment entrer en cours de sprint, et lesquels auraient pu attendre le prochain Planning ?', m.unplannedRatio);
+  }
+  if (m.reopenCount) {
+    add('À améliorer', `${m.reopenCount} ticket${s(m.reopenCount)} revenu${s(m.reopenCount)} en développement après « terminé ».`, 'Qu’est-ce qui aurait permis de détecter ces retours avant de passer le ticket en « Done à tester » ?', 0.3 + 0.1 * m.reopenCount);
+  }
+  const blocked = snap.issues.filter((i) => i.blockedDays > 0);
+  if (blocked.length) {
+    const why = new Map();
+    for (const i of blocked) for (const b of i.blocks) { const r = (b.dependency || b.reason || '').replace(/^Label « (.*) »$/, '$1'); if (r) why.set(r, (why.get(r) || 0) + 1); }
+    const top = [...why].sort((a, b) => b[1] - a[1])[0];
+    add('À améliorer', `${blocked.length} ticket${s(blocked.length)} bloqué${s(blocked.length)} à un moment du sprint${top ? `, surtout « ${top[0]} »` : ''} (${m.blockedIssueDays} jour${s(m.blockedIssueDays)}-ticket au total).`, top ? `Comment obtenir plus tôt ce qui manque (« ${top[0]} ») pour ne plus attendre en cours de sprint ?` : 'Qui ou quoi aurait pu débloquer ces tickets plus vite ?', 0.2 + 0.02 * m.blockedIssueDays);
+  }
+  const overload = thought.signals.find((sg) => sg.type === 'cross_team_overload');
+  if (overload) add('À améliorer', overload.evidence.join(' ; '), 'Ces heures estimées étaient-elles réalistes ? Qu’aurait-il fallu laisser hors du sprint pour tenir dans les heures disponibles ?', overload.severity);
+  const carry = thought.signals.find((sg) => sg.type === 'carryover');
+  if (carry) add('À améliorer', carry.title, 'Ces tickets reportés ont-ils encore la bonne taille et la bonne priorité, ou faut-il les re-découper ?', carry.severity * 0.8);
+  // Un autre sujet fort du sprint, s'il n'est pas déjà couvert
+  const covered = new Set(['cross_team_overload', 'carryover', 'quality', 'planning_accuracy', 'scope_change', 'active_blockers', 'blocked_time']);
+  const other = thought.signals.find((sg) => !covered.has(sg.type) && sg.severity >= 0.5 && sg.question);
+  if (other) add('À comprendre', other.title, other.question, other.severity * 0.7);
+
+  // Actions de la rétro précédente non réalisées
+  const pending = previousActions.filter((a) => a.status !== 'done');
+  const actionQ = pending.length ? { theme: 'Actions passées', fact: `${pending.length} action${s(pending.length)} de la rétro précédente non terminée${s(pending.length)} : « ${pending[0].text} »${pending.length > 1 ? '…' : ''}.`, question: 'On la garde, on l’adapte ou on l’abandonne ? Qu’est-ce qui a empêché de la faire ?' } : null;
+
+  const rank = { 'À améliorer': 0, 'À comprendre': 1 };
+  const improve = qs.filter((q) => q.theme !== 'À garder').sort((a, b) => b.weight - a.weight).slice(0, 4).sort((a, b) => rank[a.theme] - rank[b.theme]);
+  return [
+    ...qs.filter((q) => q.theme === 'À garder'),
+    ...improve,
+    ...(actionQ ? [actionQ] : []),
+    { theme: 'Pour conclure', fact: '', question: 'Si l’on ne change qu’une seule chose au prochain sprint, laquelle, et qui s’en occupe ?' },
+  ].map(({ weight, ...q }) => q);
+}
+
 function retrospective(snap, thought, history, names) {
   // Chronologie regroupée par jour, sans doublons
   const days = new Map();
@@ -232,7 +294,7 @@ function retrospective(snap, thought, history, names) {
     timeline,
     previousActions,
     topics: thought.signals.slice(0, 3).map((sg) => ({ title: sg.title, narrative: sg.narrative, question: sg.question, issues: sg.issues, notes: sg.notes, rows: sg.rows })),
-    questions: ['Qu’est-ce qui a bien fonctionné et que nous voulons garder ?', ...thought.signals.slice(0, 3).map((sg) => sg.question)].filter((q, i, a) => a.indexOf(q) === i).slice(0, 4),
+    questions: retroQuestions(snap, thought, previousActions, names),
     experiments: thought.recommendations.slice(0, 2).map((r) => ({ action: r.text, owner: r.owner, measure: `À vérifier au prochain sprint : « ${r.because} » doit s’améliorer.` })),
   };
 }

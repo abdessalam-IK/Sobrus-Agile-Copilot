@@ -323,22 +323,32 @@ function carryover(snap) {
   })];
 }
 
-/** Développeurs en surcharge quand on additionne leurs estimations sur tous les projets Sobrus. */
-function crossTeamOverload(snap, ctx) {
-  const p = ctx.portfolio;
-  if (!p || snap.closed) return [];
+/**
+ * Développeurs en surcharge, calculé en heures sur la durée du sprint (règle Sobrus) :
+ * heures estimées (1 point = 1 h, tous projets) comparées aux heures de développement disponibles
+ * (présence − congés − fériés − réunions). Le nombre de tickets d'une personne ne compte pas.
+ */
+const h = (x) => `${Math.round(x)} h`;
+function crossTeamOverload(snap, ctx, names) {
+  if (snap.closed) return [];
   const inTeam = new Set(snap.capacity.map((c) => c.member));
-  const over = p.devs.filter((d) => d.overloaded && inTeam.has(d.id));
+  // Tous projets si la vue Sobrus est disponible, sinon le seul projet
+  const devs = ctx.portfolio
+    ? ctx.portfolio.devs.filter((d) => inTeam.has(d.id))
+    : snap.load.filter((l) => !l.outside).map((l) => ({ id: l.member, name: names(l.member), plannedHours: l.plannedHours, devHours: l.devHours, meetingHours: l.meetingHours, presenceHours: l.presenceHours, unestimated: l.unestimated, ratio: l.occupancy, overloaded: l.occupancy != null && l.occupancy > 1, projects: [] }));
+  const over = devs.filter((d) => d.overloaded);
   if (!over.length) return [];
+  const limit = ctx.portfolio?.overloadRatio ?? 1;
   const worst = Math.max(...over.map((d) => d.ratio));
   return [signal({
     type: 'cross_team_overload', theme: 'team',
-    severity: 0.35 + 0.15 * over.length + 0.3 * (worst - p.overloadRatio),
-    title: `${plural(over.length, 'développeur en surcharge', 'développeurs en surcharge')}, tous projets confondus`,
-    narrative: `En additionnant leurs estimations sur tous les projets du sprint, certains développeurs portent plus de ${pct(p.overloadRatio)} de ce qu’ils peuvent absorber (rythme de référence : ${p.rate} point/jour).`,
-    evidence: over.map((d) => `${d.name} : ${d.total} pts estimés (${d.projects.map((x) => `${x.product} ${x.points}`).join(' + ')}) pour ~${Math.round(d.capacityPoints)} absorbables en ${d.days} j${d.unestimated ? ` · ${d.unestimated} ticket${d.unestimated > 1 ? 's' : ''} non estimé${d.unestimated > 1 ? 's' : ''} en plus` : ''}`),
-    question: 'Quelle priorité donner entre les projets pour ces personnes, et qui peut reprendre une partie de leurs tickets ?',
-    recommendation: { text: 'Arbitrer entre projets avec les PO concernés avant que la surcharge ne se traduise en reports.', owner: 'Product Owners + Scrum Master' },
+    severity: 0.35 + 0.15 * over.length + 0.3 * (worst - limit),
+    title: `${plural(over.length, 'développeur a', 'développeurs ont')} plus d’heures estimées que d’heures disponibles sur le sprint`,
+    narrative: `Calcul en heures sur la durée du sprint : les estimations (1 point = 1 h${ctx.portfolio ? ', tous projets confondus' : ''}) dépassent les heures de développement disponibles (présence, congés et fériés déduits, moins les réunions). Le nombre de tickets n’entre pas dans le calcul.`,
+    evidence: over.map((d) => `${d.name} : ${h(d.plannedHours)} estimées pour ${h(d.devHours)} disponibles (${pct(d.ratio)})${d.projects?.length > 1 ? ` · ${d.projects.map((x) => `${x.product} ${h(x.hours)}`).join(' + ')}` : ''}${d.unestimated ? ` · ${d.unestimated} ticket${d.unestimated > 1 ? 's' : ''} non estimé${d.unestimated > 1 ? 's' : ''} en plus` : ''}`),
+    issues: keys(snap.issues.filter((i) => over.some((d) => d.id === i.assignee) && !i.done)),
+    question: 'Quels tickets sortir du sprint ou confier à quelqu’un d’autre pour revenir dans les heures disponibles ?',
+    recommendation: { text: 'Ramener les estimations dans les heures disponibles : arbitrer avec le PO ce qui sort du sprint.', owner: 'Product Owner + Scrum Master' },
   })];
 }
 
@@ -446,27 +456,14 @@ function quality(snap, ctx) {
   })];
 }
 
-/** Concentration de la charge restante sur une personne (+ absences à venir). */
+/**
+ * Absences à venir avec du travail non terminé.
+ * (La part du travail portée par une personne n'est plus un signal : un seul développeur back peut porter
+ * tout le back. La charge se juge en heures, voir crossTeamOverload.)
+ */
 function concentration(snap, ctx, names) {
   if (snap.closed) return [];
-  const devLoad = snap.load.filter((l) => !l.outside); // la concentration ne concerne que les développeurs
-  const remaining = sum(devLoad, (l) => l.remainingPoints);
-  if (!remaining) return [];
   const out = [];
-  const top = [...devLoad].sort((a, b) => b.remainingPoints - a.remainingPoints)[0];
-  const share = top.remainingPoints / remaining;
-  if (share >= 0.4 && top.remainingPoints >= 8) {
-    out.push(signal({
-      type: 'concentration', theme: 'team',
-      severity: 0.2 + share * 0.8,
-      title: `${pct(share)} du travail restant repose sur une seule personne (${names(top.member)})`,
-      narrative: `${names(top.member)} porte ${top.remainingPoints} des ${remaining} points restants : risque de goulot et de surcharge, et faible partage de connaissance.`,
-      evidence: devLoad.map((l) => `${names(l.member)} : ${l.remainingPoints} pts restants, ${l.wip} en cours`),
-      issues: keys(snap.issues.filter((i) => i.assignee === top.member && !i.done)),
-      question: `Qui pourrait reprendre ou faire en binôme une partie des tickets de ${names(top.member)} ?`,
-      recommendation: { text: 'Organiser du pairing sur les sujets critiques pour répartir la charge et la connaissance.', owner: 'Équipe' },
-    }));
-  }
   const absentWithLoad = snap.load.filter((l) => l.upcomingAbsences.length && l.remainingPoints > 0);
   if (absentWithLoad.length) {
     out.push(signal({

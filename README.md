@@ -115,6 +115,14 @@ La composition de chaque équipe est déclarée dans `data/private/equipe.json` 
 
 Sans composition déclarée pour une équipe, le Copilot se replie sur la liste « Développeurs » de la Sheet Config. Linear n'enregistre pas d'heures : les interventions sont mesurées en tickets et en points.
 
+**Charge en heures (règle Sobrus, comme le Sheet « Taux d'Occupation »).** Pour chaque développeur, sur la durée du sprint :
+
+- heures estimées = estimations de ses tickets du sprint, tous projets confondus (1 point = 1 h, `HOURS_PER_POINT`) ;
+- heures disponibles = jours ouvrés × 8 h (`HOURS_PER_DAY`), congés et fériés déduits, moins ses heures de réunion (Sheet *Raw_Calendar*, projetées sur tout le sprint en cours) ;
+- occupation = heures estimées / heures disponibles ; surcharge au-delà de 100 % (`OVERLOAD_RATIO`).
+
+Le nombre de tickets ne compte pas, ni la part du sprint portée par une personne : un seul développeur back peut porter tout le back sans être en surcharge.
+
 ## Règles Linear appliquées
 
 - Les statuts suivent les types Linear ; « Done à tester » compte comme terminé.
