@@ -307,3 +307,26 @@ details.feat.full { border-left-color: var(--ok); background: var(--ok-soft); }
 details.feat.partial { border-left-color: var(--attention); background: var(--attention-soft); }
 details.feat summary { cursor: pointer; font-size: 13px; line-height: 1.6; }
 .tag.ovh { background: var(--brand-soft); color: var(--brand); border-color: transparent; }
+
+/* Accueil : modules */
+.crumbs { font-size: 13px; margin: 0 0 10px; }
+.crumbs:empty { display: none; }
+.crumbs a { color: var(--brand); text-decoration: none; }
+.modules { align-items: stretch; }
+.module-card { display: flex; flex-direction: column; gap: 12px; text-decoration: none; color: inherit; border-top: 4px solid var(--brand); }
+a.module-card:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08); }
+.module-card.soon { border-top-color: var(--border); opacity: 0.85; }
+.module-card h2 { margin: 0; font-size: 18px; flex: 1; }
+.module-card p { margin: 0; }
+.module-card ul { margin: 0; padding-left: 18px; }
+.mc-head { display: flex; align-items: center; gap: 10px; }
+.mc-icon { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); font-size: 18px; }
+.module-card.soon .mc-icon { background: var(--surface-2); color: var(--muted); }
+.mc-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.mc-kpis { display: grid; gap: 8px; }
+.mc-kpis div { display: flex; align-items: baseline; gap: 8px; }
+.mc-kpis b { font-size: 20px; min-width: 64px; }
+.mc-kpis b.bad { color: var(--critical); }
+.mc-kpis b.good { color: var(--ok); }
+.mc-kpis span { color: var(--muted); font-size: 13px; }
+.module-card .btn { align-self: flex-start; margin-top: auto; }

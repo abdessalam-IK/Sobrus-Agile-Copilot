@@ -7,7 +7,8 @@ const r1 = (x) => (x == null ? '—' : String(Math.round(x * 10) / 10).replace('
 const r2 = (x) => (x == null ? '—' : String(Math.round(x * 100) / 100).replace('.', ','));
 const dm = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '');
 
-const SOBRUS = '__sobrus';
+const SOBRUS = '__sobrus'; // module Développement : les cartes des équipes
+const HOME = '__home'; // accueil : les modules
 const state = { mode: 'sobrus', sobrus: null, teams: [], team: null, summary: null, config: null, sprintId: null, asOf: null, data: null, tab: 'overview', ai: {} };
 
 // Un seul menu, dans l'ordre où l'on en a besoin au fil du sprint.
@@ -70,22 +71,41 @@ async function init() {
   setInterval(refreshSyncLabel, 60e3); // l'âge des données avance chaque minute
   setInterval(watchFreshData, 60e3); // nouvelles données côté serveur → rechargement
 
-  // Vue Sobrus par défaut ; sinon le dernier projet ouvert dans ce navigateur
-  let saved = null;
-  try { saved = localStorage.getItem('copilot.team'); } catch { /* stockage indisponible */ }
+  // Navigation par l'adresse : #developpement, #SUPP… (bouton Retour et liens partagés) ; l'accueil par défaut
   const teamSel = $('#team-select');
-  teamSel.innerHTML = `<option value="${SOBRUS}">Vue Sobrus — tous les projets</option>` + state.teams.map((t) => `<option value="${t.key}">${esc(t.product)}</option>`).join('');
-  teamSel.value = saved && (saved === SOBRUS || state.teams.some((t) => t.key === saved)) ? saved : SOBRUS;
+  teamSel.innerHTML = `<option value="${HOME}">Accueil — modules</option><option value="${SOBRUS}">Développement — toutes les équipes</option><optgroup label="Équipes">`
+    + state.teams.map((t) => `<option value="${t.key}">${esc(t.product)}</option>`).join('') + '</optgroup>';
   teamSel.addEventListener('change', () => openView(teamSel.value));
   $('#sprint-select').addEventListener('change', (e) => { state.sprintId = e.target.value; state.asOf = null; load(); });
-  await openView(teamSel.value);
+  window.addEventListener('hashchange', () => { const v = viewFromHash(); if (v !== state.view) openView(v, { fromHash: true }); });
+  await openView(viewFromHash(), { fromHash: true });
 }
 
-/** Ouvre la Vue Sobrus ou un projet. */
-async function openView(value) {
+/** Vue demandée par l'adresse : #developpement = module Développement, #SUPP = une équipe, rien = accueil. */
+function viewFromHash() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h === 'developpement') return SOBRUS;
+  if (state.teams.some((t) => t.key === h.toUpperCase())) return h.toUpperCase();
+  return HOME;
+}
+const hashOf = (v) => (v === HOME ? '' : v === SOBRUS ? '#developpement' : `#${v}`);
+
+/** Fil d'Ariane : Accueil › Développement › équipe. */
+function renderCrumbs(value) {
+  const parts = ['<a href="#">Accueil</a>'];
+  if (value !== HOME) parts.push(value === SOBRUS ? '<b>Développement</b>' : '<a href="#developpement">Développement</a>');
+  if (value !== HOME && value !== SOBRUS) parts.push(`<b>${esc(state.teams.find((t) => t.key === value)?.product || value)}</b>`);
+  $('#crumbs').innerHTML = value === HOME ? '' : parts.join(' <span class="muted">›</span> ');
+}
+
+/** Ouvre l'accueil, le module Développement ou une équipe. */
+async function openView(value, { fromHash = false } = {}) {
+  state.view = value;
   $('#team-select').value = value;
-  try { localStorage.setItem('copilot.team', value); } catch { /* stockage indisponible */ }
+  if (!fromHash && location.hash !== hashOf(value)) history.pushState(null, '', hashOf(value) || location.pathname);
+  renderCrumbs(value);
   state.ai = {};
+  if (value === HOME) return loadHome();
   if (value === SOBRUS) return loadSobrus();
   state.team = value;
   state.tab = 'overview';
@@ -102,9 +122,21 @@ function setMode(mode) {
   if (!project) $('#precisions').innerHTML = '';
 }
 
+/** Accueil : les modules (Développement, Infrastructure, Refonte & Fusions). */
+async function loadHome() {
+  setMode('home');
+  $('#brand-sub').textContent = 'Accueil — modules';
+  $('#data-note').textContent = '';
+  renderSync({ source: 'linear', syncedAt: state.teams.map((t) => t.syncedAt).sort()[0] });
+  $('#view').innerHTML = '<p class="muted">Chargement…</p>';
+  state.sobrus = await api('/api/sobrus');
+  $('#view').innerHTML = viewHome(state.sobrus);
+  window.scrollTo({ top: 0 });
+}
+
 async function loadSobrus() {
   setMode('sobrus');
-  $('#brand-sub').textContent = 'Vue Sobrus — tous les projets';
+  $('#brand-sub').textContent = 'Module Développement — toutes les équipes';
   $('#data-note').textContent = '';
   const oldest = state.teams.map((t) => t.syncedAt).sort()[0];
   renderSync({ source: 'linear', syncedAt: oldest });
@@ -136,6 +168,37 @@ async function loadTeam(keepSprint = false) {
 // Vue Sobrus : tous les projets sur un seul écran
 // ---------------------------------------------------------------------------
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+
+/** Accueil : une carte par module, avec son statut et ses indicateurs clés. */
+function viewHome(v) {
+  const c = v.counts;
+  const done = v.cards.reduce((a, x) => a + x.done, 0);
+  const scope = v.cards.reduce((a, x) => a + x.scope, 0);
+  const sprint = v.cards[0];
+  const pills = [c.ok && `<span class="status-pill ok">${c.ok} dans les temps</span>`, c.tension && `<span class="status-pill tension">${c.tension} sous tension</span>`, c.risk && `<span class="status-pill risk">${c.risk} en difficulté</span>`].filter(Boolean).join(' ');
+  const soon = (title, icon, text, items) => `<div class="card module-card soon">
+      <div class="mc-head"><span class="mc-icon" aria-hidden="true">${icon}</span><h2>${title}</h2><span class="tag">En préparation</span></div>
+      <p class="muted">${text}</p>
+      <ul class="small">${items.map((x) => `<li>${x}</li>`).join('')}</ul>
+    </div>`;
+  return `
+    <div class="sobrus-head"><h1>Sobrus AI Copilot</h1><p class="sobrus-summary">Choisissez un module.</p></div>
+    <div class="grid cols-3 modules">
+      <a class="card module-card" href="#developpement">
+        <div class="mc-head"><span class="mc-icon" aria-hidden="true">⌘</span><h2>Développement</h2></div>
+        <p class="muted">Sprints des équipes : avancement, charge en heures, Daily, Review, Rétro, Planning.</p>
+        <div class="mc-pills">${pills}</div>
+        <div class="mc-kpis">
+          <div><b>${v.cards.length}</b><span>équipes suivies</span></div>
+          <div><b>${done}<span class="muted small"> / ${scope}</span></b><span>tickets livrés${sprint ? ` · ${esc(sprint.sprint)}, jour ${sprint.day}/${sprint.totalDays}` : ''}</span></div>
+          <div><b class="${v.overloaded.length ? 'bad' : 'good'}">${v.overloaded.length}</b><span>développeur${v.overloaded.length > 1 ? 's' : ''} au-delà de 100 % de charge</span></div>
+        </div>
+        <span class="btn">Ouvrir le module →</span>
+      </a>
+      ${soon('Infrastructure', '⛁', 'Suivi de l’infrastructure Sobrus, séparé du développement.', ['Chantiers de l’équipe Infrastructure (Linear) : en cours, bloqués, livrés', 'Monitoring : disponibilité, erreurs front / back / infra, temps de réponse', 'Incidents majeurs, temps de résolution, plan de continuité testé'])}
+      ${soon('Refonte &amp; Fusions', '⇄', 'Un suivi par chantier de refonte ou de migration.', ['Jalons tenus ou en retard par rapport au planning', 'Périmètre migré', 'Date cible et date prévisible'])}
+    </div>`;
+}
 
 function viewSobrus(v) {
   const pill = (st) => `<span class="status-pill ${st.id}">${esc(st.label)}</span>`;
@@ -171,7 +234,7 @@ function viewSobrus(v) {
 
   return `
     <div class="sobrus-head">
-      <h1>${esc(first?.sprint || 'Sprint en cours')}${first && !first.closed ? ` · jour ${first.day}/${first.totalDays}` : ''}</h1>
+      <h1>Développement · ${esc(first?.sprint || 'Sprint en cours')}${first && !first.closed ? ` · jour ${first.day}/${first.totalDays}` : ''}</h1>
       <p class="sobrus-summary">${plural(n, 'projet suivi', 'projets suivis')} : ${parts}.</p>
     </div>
 
@@ -213,7 +276,8 @@ async function watchFreshData() {
     if (sig(teams) === sig(state.teams)) return;
     state.teams = teams;
     state.ai = {};
-    if (state.mode === 'sobrus') await loadSobrus();
+    if (state.mode === 'home') await loadHome();
+    else if (state.mode === 'sobrus') await loadSobrus();
     else await loadTeam(true);
   } catch { /* serveur arrêté : on réessaiera */ }
 }
@@ -227,7 +291,8 @@ async function syncNow() {
     await api('/api/sync', { method: 'POST' });
     state.teams = await api('/api/teams');
     state.ai = {};
-    if (state.mode === 'sobrus') await loadSobrus();
+    if (state.mode === 'home') await loadHome();
+    else if (state.mode === 'sobrus') await loadSobrus();
     else await loadTeam(true);
   } catch (err) {
     alert(`Synchronisation impossible : ${err.message}`);
