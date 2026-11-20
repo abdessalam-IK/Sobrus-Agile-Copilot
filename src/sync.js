@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEnv } from './adapters/linear-client.js';
 import { importFromLinear } from './adapters/linear.js';
-import { readSheets } from './adapters/sheets.js';
+import { readSheets, fetchSheets } from './adapters/sheets.js';
 import { TEAMS, teamFile } from './store.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -44,9 +44,21 @@ export async function syncLinear({ teamKey = TEAMS[0], closedCycles = 6, onProgr
 }
 
 /** Synchronise toutes les équipes suivies, l'une après l'autre (limite de requêtes Linear). */
+/** Configuration privée à jour : équipes (equipe.json) + Google Sheet en direct quand GOOGLE_SHEET_URL est défini. */
+export async function freshPrivateConfig(base = localPrivateConfig()) {
+  loadEnv();
+  if (!process.env.GOOGLE_SHEET_URL) return base;
+  try {
+    return { ...base, sheets: await fetchSheets(process.env.GOOGLE_SHEET_URL), sheetsSource: 'google' };
+  } catch (e) {
+    console.error(`Google Sheet illisible, repli sur les CSV locaux : ${e.message}`);
+    return { ...base, sheetsSource: 'csv' };
+  }
+}
+
 export async function syncAll({ teams = TEAMS, closedCycles = 6, onProgress = () => {}, config = null } = {}) {
   const results = [];
-  const shared = config || localPrivateConfig();
+  const shared = await freshPrivateConfig(config || localPrivateConfig());
   for (const teamKey of teams) {
     onProgress(`Équipe ${teamKey}…`);
     results.push(await syncLinear({ teamKey, closedCycles, onProgress, config: shared }));

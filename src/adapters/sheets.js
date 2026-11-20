@@ -26,11 +26,11 @@ export function parseCsv(text) {
   return rows;
 }
 
-/** Lit un onglet : saute les lignes de titre jusqu'à la ligne d'en-tête qui contient `firstHeader`. */
-function readTab(dir, suffix, firstHeader) {
-  const file = readdirSync(dir).find((f) => f.endsWith(`${suffix}.csv`));
-  if (!file) return [];
-  const rows = parseCsv(readFileSync(path.join(dir, file), 'utf8').replace(/^﻿/, ''));
+/** Lit un onglet (texte CSV) : saute les lignes de titre jusqu'à la ligne d'en-tête qui contient `firstHeader`. */
+function readTab(tabs, name, firstHeader) {
+  const text = tabs[name];
+  if (!text) return [];
+  const rows = parseCsv(text.replace(/^﻿/, ''));
   const h = rows.findIndex((r) => r[0]?.trim() === firstHeader);
   if (h < 0) return [];
   const header = rows[h].map((x) => x.trim());
@@ -45,17 +45,50 @@ function readTab(dir, suffix, firstHeader) {
 const num = (s) => Number(String(s || '0').replace(',', '.')) || 0;
 const isoDate = (s) => (/^\d{2}\/\d{2}\/\d{4}$/.test(s) ? `${s.slice(6)}-${s.slice(3, 5)}-${s.slice(0, 2)}` : s);
 
+export const TABS = ['Config', 'Manual_Input', 'Raw_Calendar'];
+
+/** Exports CSV déposés à la main dans un dossier (« Taux d'Occupation Sobrus - Config.csv », …). */
 export function readSheets(dir = 'data/private/Sheets') {
   if (!existsSync(dir)) return null;
+  const files = readdirSync(dir);
+  const tabs = {};
+  for (const name of TABS) {
+    const file = files.find((f) => f.endsWith(`${name}.csv`));
+    if (file) tabs[name] = readFileSync(path.join(dir, file), 'utf8');
+  }
+  return Object.keys(tabs).length ? sheetsFromTabs(tabs) : null;
+}
 
-  const developers = readTab(dir, 'Config', 'Email').filter((r) => r.Email.includes('@')).map((r) => ({ email: r.Email.toLowerCase(), name: r.Nom }));
-  const sprints = readTab(dir, 'Config', 'Sprint').filter((r) => r['Date début']).map((r) => ({ name: r.Sprint, start: r['Date début'], end: r['Date fin'], capacityHours: num(r['Capacité/dev (h)']), status: r.Statut }));
+/**
+ * Google Sheet « Taux d'Occupation Sobrus » en direct, publié sur le Web (Fichier → Partager → Publier sur le Web).
+ * `url` = le lien de publication (…/spreadsheets/d/e/<id>/pubhtml) ; chaque onglet est lu en CSV.
+ */
+export async function fetchSheets(url) {
+  const base = url.trim().replace(/\/pub(html)?([?#].*)?$/, '');
+  const html = await (await fetch(`${base}/pubhtml`)).text();
+  const gids = {};
+  for (const m of html.matchAll(/switchToSheet\('(\d+)'\)[^>]*>([^<]+)</g)) gids[m[2].trim()] = m[1];
+  for (const m of html.matchAll(/id="sheet-button-(\d+)"[^>]*>(?:<a[^>]*>)?([^<]+)</g)) gids[m[2].trim()] ??= m[1];
+  const tabs = {};
+  for (const name of TABS) {
+    const gid = gids[name];
+    if (gid == null) throw new Error(`Onglet « ${name} » introuvable dans le Google Sheet publié (onglets vus : ${Object.keys(gids).join(', ') || 'aucun'})`);
+    const res = await fetch(`${base}/pub?gid=${gid}&single=true&output=csv`);
+    if (!res.ok) throw new Error(`Google Sheet : onglet « ${name} » illisible (${res.status})`);
+    tabs[name] = await res.text();
+  }
+  return sheetsFromTabs(tabs);
+}
+
+function sheetsFromTabs(tabs) {
+  const developers = readTab(tabs, 'Config', 'Email').filter((r) => r.Email.includes('@')).map((r) => ({ email: r.Email.toLowerCase(), name: r.Nom }));
+  const sprints = readTab(tabs, 'Config', 'Sprint').filter((r) => r['Date début']).map((r) => ({ name: r.Sprint, start: r['Date début'], end: r['Date fin'], capacityHours: num(r['Capacité/dev (h)']), status: r.Statut }));
 
   // Congés / absences (en heures) et jours fériés, dédoublonnés (l'export contient des doublons)
   const seen = new Set();
   const absences = {};
   const holidays = new Set();
-  for (const r of readTab(dir, 'Manual_Input', 'Date')) {
+  for (const r of readTab(tabs, 'Manual_Input', 'Date')) {
     const key = `${r.Date}|${r.Email}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -67,7 +100,7 @@ export function readSheets(dir = 'data/private/Sheets') {
 
   // Heures de réunion : valeurs cumulées → on garde le maximum par sprint et par dev
   const meetings = {};
-  for (const r of readTab(dir, 'Raw_Calendar', 'Date')) {
+  for (const r of readTab(tabs, 'Raw_Calendar', 'Date')) {
     const s = (meetings[r.Sprint] ||= {});
     const email = r.Email.toLowerCase();
     s[email] = Math.max(s[email] || 0, num(r['Heures réunion (cumul sprint)']));

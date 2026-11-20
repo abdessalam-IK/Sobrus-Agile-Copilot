@@ -250,6 +250,13 @@ function dropTrackedParents(issues) {
   return issues.filter((i) => !(i.isParent && parentsWithChildren.has(i.key)));
 }
 
+/** Sprint du Sheet correspondant à un cycle Linear : même nom (« Sprint Novembre 2 » = « Novembre 2 »), sinon début à ± 3 jours. */
+const sprintName = (n) => String(n || '').toLowerCase().replace(/^\s*s[a-z]*t\s+/, '').trim(); // « Sprint », « Sptint »…
+export function matchSheetSprint(sheetSprints, sprint) {
+  return sheetSprints.find((x) => sprintName(x.name) === sprintName(sprint.name))
+    || sheetSprints.find((x) => Math.abs(Date.parse(x.start) - Date.parse(sprint.start)) <= 3 * 864e5);
+}
+
 export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, sheets = null, teamConfig = {}, onProgress = () => {} } = {}) {
   const { teams, viewer } = await linear('{ viewer { organization { urlKey } } teams(first: 100) { nodes { id key name } } }');
   const team = teams.nodes.find((t) => t.key === teamKey);
@@ -356,7 +363,7 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
         const inSprint = dates.filter((d) => d >= s.start && d <= s.end);
         if (m && inSprint.length) s.absences[m.id] = inSprint;
       }
-      const sheetSprint = sheets.sprints.find((x) => x.start === s.start);
+      const sheetSprint = matchSheetSprint(sheets.sprints, s);
       const meetings = sheetSprint && sheets.meetings[sheetSprint.name];
       if (meetings) s.meetingHours = Object.fromEntries(Object.entries(meetings).map(([e, h]) => [byEmail.get(e)?.id || e, h]).filter(([id]) => !id.includes('@')));
     }
