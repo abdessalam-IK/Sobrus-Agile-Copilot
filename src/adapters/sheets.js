@@ -63,7 +63,14 @@ export function readSheets(dir = 'data/private/Sheets') {
  * Google Sheet « Taux d'Occupation Sobrus » en direct, publié sur le Web (Fichier → Partager → Publier sur le Web).
  * `url` = le lien de publication (…/spreadsheets/d/e/<id>/pubhtml) ; chaque onglet est lu en CSV.
  */
-export async function fetchSheets(url) {
+export async function fetchSheets(url, token = process.env.GOOGLE_SHEET_TOKEN) {
+  // Application Web Apps Script du Sheet (scripts/apps-script/Copilot.gs) : les 3 onglets en une requête
+  if (/script\.google(usercontent)?\.com/.test(url)) {
+    const res = await fetch(`${url.trim()}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token || '')}`);
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.tabs) throw new Error(`Apps Script du Google Sheet : ${body?.error || `réponse inattendue (${res.status})`}`);
+    return sheetsFromTabs(body.tabs);
+  }
   const base = url.trim().replace(/\/pub(html)?([?#].*)?$/, '');
   const html = await (await fetch(`${base}/pubhtml`)).text();
   const gids = {};

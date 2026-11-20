@@ -149,7 +149,8 @@ node cli.js report --out rapport.md
 | `LINEAR_TEAMS` | Équipes Linear suivies (clés, séparées par des virgules) | `SUPP,CEN` |
 | `PORT` | Port HTTP | `4300` |
 | `SYNC_EVERY_MIN` | Synchronisation automatique de Linear tant que le serveur tourne (minutes ; `0` = désactivée). L’écran se recharge seul quand de nouvelles données arrivent | `30` |
-| `GOOGLE_SHEET_URL` | Lien de publication Web du Google Sheet « Taux d'Occupation Sobrus » : congés, fériés et réunions relus à chaque synchronisation (sinon les CSV de `data/private/Sheets`) | — |
+| `GOOGLE_SHEET_URL` | Google Sheet « Taux d'Occupation Sobrus » lu à chaque synchronisation : URL de l'application Web Apps Script (`scripts/apps-script/Copilot.gs`) ou lien de publication Web ; sinon les CSV de `data/private/Sheets` | — |
+| `GOOGLE_SHEET_TOKEN` | Code secret attendu par l'Apps Script (même valeur que `COPILOT_TOKEN` dans le script) | — |
 | `COPILOT_TZ` | Fuseau des dates et heures (journée du Daily, heures des mouvements) | `Africa/Casablanca` |
 | `SOBRUS_AI_PSEUDONYMIZE` | Remplace les prénoms par « Membre A, B… » avant l'envoi à Claude | `true` |
 
