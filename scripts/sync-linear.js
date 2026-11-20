@@ -1,5 +1,5 @@
 // Synchronise les équipes Linear suivies (+ Sheets) vers data/private/linear-<équipe>.json
-// Usage : npm run sync                  → toutes les équipes de LINEAR_TEAMS (défaut SUPP,CEN)
+// Usage : npm run sync                  → toutes les équipes de LINEAR_TEAMS (défaut : les 7 projets)
 //         npm run sync -- CEN [6]       → une seule équipe, 6 cycles terminés
 
 import { syncAll } from '../src/sync.js';

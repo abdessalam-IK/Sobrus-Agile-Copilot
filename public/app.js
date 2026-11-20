@@ -164,11 +164,6 @@ function viewSobrus(v) {
       <button class="btn ghost" data-open-team="${esc(c.team)}">Ouvrir le projet →</button>
     </div>`).join('');
 
-  const decisions = v.decisions.map((d) => `<li>
-      <div class="d-problem"><b>${esc(d.topic)}</b><ul>${d.projects.map((p) => `<li>${p.team ? `<span class="tag">${esc(p.product)}</span> ` : ''}${esc(p.problem)}</li>`).join('')}</ul></div>
-      <div class="d-action">→ ${esc(d.action)} <span class="muted small">— ${esc(d.owner)}</span></div>
-    </li>`).join('');
-
   const changes = v.cards.flatMap((c) => [
     ...c.change.map((x) => `<li><span class="tag">${esc(c.product)}</span> ${esc(x)}</li>`),
     ...c.progress.slice(0, 1).map((x) => `<li><span class="tag green">${esc(c.product)}</span> ${esc(x)}</li>`),
@@ -177,14 +172,11 @@ function viewSobrus(v) {
   return `
     <div class="sobrus-head">
       <h1>${esc(first?.sprint || 'Sprint en cours')}${first && !first.closed ? ` · jour ${first.day}/${first.totalDays}` : ''}</h1>
-      <p class="sobrus-summary">${plural(n, 'projet suivi', 'projets suivis')} : ${parts}. <b>${plural(v.decisions.length, 'décision', 'décisions')} à prendre cette semaine.</b></p>
+      <p class="sobrus-summary">${plural(n, 'projet suivi', 'projets suivis')} : ${parts}.</p>
     </div>
 
     <div class="grid cols-2">${cards}</div>
     <p class="small muted">Statut = avancement du sprint et gravité des points d’attention. Le repère sur la barre indique où l’équipe devrait en être à ce jour.</p>
-
-    <div class="section-title"><h2>À décider cette semaine</h2><span class="muted small">Les points les plus importants, tous projets confondus</span></div>
-    ${decisions ? `<div class="card"><ol class="decisions">${decisions}</ol></div>` : '<div class="card"><p class="muted">Aucune décision urgente.</p></div>'}
 
     ${changes.length ? `<div class="section-title"><h2>Ce qui change d’un sprint à l’autre</h2></div><div class="card"><ul class="changes">${changes.join('')}</ul></div>` : ''}`;
 }

@@ -8,7 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 if (existsSync(path.join(root, '.env'))) process.loadEnvFile(path.join(root, '.env'));
 
 /** Équipes Linear suivies par le Copilot (clés Linear), dans l'ordre d'affichage. */
-export const TEAMS = (process.env.LINEAR_TEAMS || 'SUPP,CEN')
+export const TEAMS = (process.env.LINEAR_TEAMS || 'SUPP,CEN,PHARM,SMED,SOB,SMARK,POST')
   .split(',')
   .map((t) => t.trim().toUpperCase())
   .filter(Boolean);

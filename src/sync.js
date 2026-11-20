@@ -67,9 +67,15 @@ export async function freshPrivateConfig(base = localPrivateConfig()) {
 export async function syncAll({ teams = TEAMS, closedCycles = 6, onProgress = () => {}, config = null } = {}) {
   const results = [];
   const shared = await freshPrivateConfig(config || localPrivateConfig());
-  for (const teamKey of teams) {
-    onProgress(`Équipe ${teamKey}…`);
-    results.push(await syncLinear({ teamKey, closedCycles, onProgress, config: shared }));
-  }
+  // Trois équipes à la fois : assez rapide pour Vercel, raisonnable pour les limites de l'API Linear
+  const queue = [...teams];
+  const worker = async () => {
+    for (let teamKey = queue.shift(); teamKey; teamKey = queue.shift()) {
+      onProgress(`Équipe ${teamKey}…`);
+      results.push(await syncLinear({ teamKey, closedCycles, onProgress, config: shared }));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(Number(process.env.SYNC_CONCURRENCY || 3), teams.length) }, worker));
+  results.sort((a, b) => teams.indexOf(a.team) - teams.indexOf(b.team));
   return results;
 }

@@ -336,8 +336,11 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
       for (const u of users.nodes) members.set(u.id, u);
     }
   }
-  const team_ = [...members.values()].map((m) => {
-    const email = m.email?.toLowerCase();
+  const sheetName = (email) => sheets?.developers.find((d) => d.email === email)?.name;
+  const team_ = [...members.values()].map((m0) => {
+    const email = m0.email?.toLowerCase();
+    // Linear affiche parfois l'e-mail comme nom : on prend alors le nom du Sheet
+    const m = m0.name?.includes('@') && sheetName(email) ? { ...m0, name: sheetName(email) } : m0;
     if (roster) {
       const member = roster.membres.find((x) => x.email.toLowerCase() === email);
       if (member) return { id: m.id, name: m.name, email, role: member.role, kind: 'member', delivery: true };
@@ -345,7 +348,9 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
       const isDev = !outsideRole && (allMembers.has(email) || devEmails?.has(email));
       return { id: m.id, name: m.name, email, role: outsideRole || (isDev ? 'Développeur d’une autre équipe' : 'Hors équipe (PM, PO, design…)'), kind: isDev ? 'guest' : 'other', delivery: false };
     }
-    const isDev = !devEmails || devEmails.has(email);
+    // Sans composition déclarée : développeurs du Sheet, sauf ceux déclarés dans une autre équipe (= intervention)
+    const isDev = !devEmails || devEmails.has(email) || allMembers.has(email);
+    if (isDev && allMembers.has(email)) return { id: m.id, name: m.name, email, role: 'Développeur d’une autre équipe', kind: 'guest', delivery: false };
     return { id: m.id, name: m.name, email, role: isDev ? 'Développeur' : 'Hors équipe (PM, PO, design…)', kind: isDev ? 'member' : 'other', delivery: isDev };
   });
   // Capacité d'un sprint : les membres de l'équipe (composition déclarée), ou à défaut les développeurs

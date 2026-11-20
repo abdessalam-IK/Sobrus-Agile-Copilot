@@ -29,7 +29,7 @@ Ouvrir http://localhost:4300 et choisir le **projet** en haut de l'écran. Ensui
 
 ## Projets suivis
 
-Le Copilot suit plusieurs équipes Linear, une par projet. Aujourd'hui : **Sobrus Supply (SUPP)** et **Sobrus Central V2 (CEN)**. Pour en ajouter une, ajouter sa clé Linear dans `.env` (`LINEAR_TEAMS=SUPP,CEN,PHARM`) puis lancer `npm run sync`. Chaque projet est synchronisé dans `data/private/linear-<clé>.json`.
+Le Copilot suit plusieurs équipes Linear, une par projet. Aujourd'hui : **Sobrus Supply (SUPP)**, **Sobrus Central V2 (CEN)**, **Sobrus Pharma (PHARM)**, **Sobrus MED (SMED)**, **Sobrus SuperApp (SOB)**, **Sobrus Marketplace (SMARK)** et **Sobrus Posts (POST)**. Pour en ajouter une, ajouter sa clé Linear à `LINEAR_TEAMS` dans `.env` puis lancer `npm run sync`. Chaque projet est synchronisé dans `data/private/linear-<clé>.json`.
 
 **Charge des développeurs, tous projets** (page Sprint) : chaque projet garde sa propre capacité ; en plus, les estimations de chaque développeur sont additionnées sur tous les projets du sprint en cours. Au-delà de 1,2 fois ce qu'il peut absorber (jours disponibles × rythme de référence des 3 derniers sprints), le Copilot signale une **surcharge**.
 
@@ -146,7 +146,7 @@ node cli.js report --out rapport.md
 | Variable | Rôle | Défaut |
 |----------|------|--------|
 | `LINEAR_API_KEY` | Clé API Linear (lecture seule) | — |
-| `LINEAR_TEAMS` | Équipes Linear suivies (clés, séparées par des virgules) | `SUPP,CEN` |
+| `LINEAR_TEAMS` | Équipes Linear suivies (clés, séparées par des virgules) | `SUPP,CEN,PHARM,SMED,SOB,SMARK,POST` |
 | `PORT` | Port HTTP | `4300` |
 | `SYNC_EVERY_MIN` | Synchronisation automatique de Linear tant que le serveur tourne (minutes ; `0` = désactivée). L’écran se recharge seul quand de nouvelles données arrivent | `30` |
 | `GOOGLE_SHEET_URL` | Copilot local : `https://sobrus-agile-copilot.vercel.app/api/sheets` (le Sheet y est envoyé par son Apps Script, `scripts/apps-script/Copilot.gs`, toutes les 30 min) ; sinon les CSV de `data/private/Sheets` | — |
