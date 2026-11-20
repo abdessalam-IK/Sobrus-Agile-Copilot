@@ -18,8 +18,8 @@ export const DATA_DIR = process.env.COPILOT_DATA_DIR || (process.env.VERCEL ? '/
 
 export const teamFile = (team) => path.join(DATA_DIR, `linear-${team.toLowerCase()}.json`);
 
-// Sur Vercel : les données livrées avec le déploiement (data/private, en lecture seule) servent de point de départ ;
-// les synchronisations Linear suivantes écrivent dans /tmp.
+// Sur Vercel : les données viennent du store privé (Vercel Blob) ou d'une synchronisation Linear, écrites dans /tmp.
+// (Copie d'éventuelles données livrées avec le déploiement : plus utilisé, les déploiements partent de GitHub.)
 if (process.env.VERCEL) {
   mkdirSync(DATA_DIR, { recursive: true });
   for (const team of TEAMS) {

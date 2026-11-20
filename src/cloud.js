@@ -17,6 +17,9 @@ import { TEAMS, teamFile } from './store.js';
 
 export const cloudEnabled = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
+/** Seule la production écrit dans le store : un aperçu de pull request ne peut pas abîmer les données en ligne. */
+export const cloudWritable = () => cloudEnabled() && (!process.env.VERCEL_ENV || process.env.VERCEL_ENV === 'production');
+
 const dataName = (team) => `data/linear-${team.toLowerCase()}.json.gz`;
 
 export async function putJson(name, value) {

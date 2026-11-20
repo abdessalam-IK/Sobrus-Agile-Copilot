@@ -20,3 +20,4 @@ vercel-static/
 
 .vercel
 .env*
+!.env.example

@@ -156,22 +156,25 @@ node cli.js report --out rapport.md
 
 ## Version en ligne (Vercel)
 
-Lien partagé avec les responsables, **réservé aux comptes Google @sobrus.com**. Même moteur d'analyse qu'en local, sans la couche IA générative (qui reste sur le poste, via Claude Code).
+Lien : **https://sobrus-agile-copilot.vercel.app** — même moteur d'analyse qu'en local, sans la couche IA générative (qui reste sur le poste, via Claude Code).
 
-- `api/index.js` : une seule fonction sert l'interface et l'API, après vérification de la connexion. Sans configuration Google, le site refuse tout accès.
-- Données : store **Vercel Blob privé** (`data/linear-<équipe>.json.gz`). Dès que les données ont plus de 30 min, une visite déclenche une synchronisation Linear en arrière-plan (≈ 1 min) ; l'écran se recharge seul ensuite.
-- `equipe.json` et les Sheets ne sont jamais dans Git : `npm run cloud:push` les dépose dans le store privé (à relancer quand ils changent).
+- **Publication automatique** : chaque fusion sur `main` (GitHub) déploie la nouvelle version en 1 à 2 minutes.
+- **Aucune donnée dans le déploiement** : tout vient du store privé **Vercel Blob** — données Linear (`data/linear-<équipe>.json.gz`), composition des équipes (`config/equipe.json.gz`), Google Sheet (`config/sheets.json.gz`).
+- **Données à jour sans publication** : dès que les données ont plus de 30 min, une visite déclenche une synchronisation Linear en arrière-plan (≈ 1 min), enregistrée dans le store ; l'écran se recharge seul. Le Google Sheet est envoyé par son Apps Script toutes les 30 min (`scripts/apps-script/Copilot.gs`, sur `/api/sheets`, avec un code secret).
+- **Composition des équipes** : quand `data/private/equipe.json` change, lancer `npm run cloud:push`.
+- Seule la production écrit dans le store : un aperçu de pull request ne peut pas abîmer les données en ligne.
+- Accès : lien ouvert. Une connexion Google @sobrus.com est prête dans le code (`src/auth.js`) et s'active en définissant `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` et `SESSION_SECRET`.
 
-Variables d'environnement Vercel :
+Variables d'environnement Vercel (production) : `LINEAR_API_KEY`, `BLOB_READ_WRITE_TOKEN` (ajoutée par Vercel avec le store), `GOOGLE_SHEET_TOKEN`, `COPILOT_TZ=UTC`.
 
-| Variable | Rôle |
-|----------|------|
-| `LINEAR_API_KEY` | Clé API Linear (lecture seule) |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Client OAuth Google (type « Application Web »), URI de redirection `https://<domaine>/auth/callback` |
-| `SESSION_SECRET` | Secret de signature des sessions (32 caractères minimum) |
-| `BLOB_READ_WRITE_TOKEN` | Ajoutée par Vercel quand le store Blob est relié au projet |
-| `ALLOWED_EMAILS` | Optionnel : limite l'accès à ces adresses (séparées par des virgules) ; sinon tout compte @sobrus.com |
-| `PUBLIC_URL` | Optionnel : domaine public si différent de celui de la requête |
+## Arriver sur le projet (nouveau développeur)
+
+1. Être ajouté comme collaborateur du dépôt GitHub, puis `git clone` et `npm install`.
+2. Copier `.env.example` en `.env` et le compléter : sa propre clé API Linear (lecture seule) ; `GOOGLE_SHEET_TOKEN` transmis par le responsable du projet.
+3. Récupérer `data/private/equipe.json` auprès du responsable du projet (non versionné).
+4. `npm run sync` puis `npm start` → http://localhost:4300. `npm test` doit passer.
+5. Avec Claude Code : les règles du projet sont dans `CLAUDE.md`, lu automatiquement.
+6. Travailler sur une branche et ouvrir une pull request vers `main` ; sa fusion publie la version en ligne.
 
 ## Tests
 

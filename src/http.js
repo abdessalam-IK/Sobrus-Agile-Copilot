@@ -13,7 +13,7 @@ import { generate, aiConfigured, aiModel, aiProvider, AI_KINDS } from './ai/clau
 import { timeZone, offsetMinutes } from './lib/tz.js';
 import { syncAll, localPrivateConfig } from './sync.js';
 import { authEnabled, currentUser, handleAuth } from './auth.js';
-import { cloudEnabled, hydrate, privateConfig, uploadTeam, putJson, getJson, SHEETS_BLOB } from './cloud.js';
+import { cloudEnabled, cloudWritable, hydrate, privateConfig, uploadTeam, putJson, getJson, SHEETS_BLOB } from './cloud.js';
 import { sheetsFromTabs } from './adapters/sheets.js';
 import { timingSafeEqual } from 'node:crypto';
 
@@ -63,7 +63,7 @@ export function runSync(reason) {
       // En ligne : configuration privée et résultats dans le store Vercel Blob
       const config = cloudEnabled() ? await privateConfig(localPrivateConfig()) : null;
       const results = await syncAll(config ? { config } : {});
-      if (cloudEnabled()) await Promise.all(results.map((r) => uploadTeam(r.team)));
+      if (cloudWritable()) await Promise.all(results.map((r) => uploadTeam(r.team)));
       console.log(`Synchronisation ${reason} terminée (${new Date().toISOString()})`);
       return results;
     } finally {
@@ -169,6 +169,7 @@ async function route(req, res) {
     if (req.method === 'POST') {
       const body = await readBody(req);
       if (!sheetTokenOk(body.token)) return send(res, 403, { error: 'Accès refusé' });
+      if (!cloudWritable()) return send(res, 409, { error: 'Seule la version de production reçoit le Google Sheet' });
       const sheets = { ...sheetsFromTabs(body.tabs || {}), receivedAt: new Date().toISOString() };
       if (!sheets.sprints.length) return send(res, 400, { error: 'Onglet Config vide ou illisible' });
       await putJson(SHEETS_BLOB, sheets);

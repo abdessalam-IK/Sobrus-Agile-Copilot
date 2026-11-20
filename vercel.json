@@ -7,7 +7,7 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 300,
-      "includeFiles": "{public,data/private}/**"
+      "includeFiles": "public/**"
     }
   },
   "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]

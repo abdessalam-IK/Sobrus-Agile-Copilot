@@ -2,16 +2,29 @@
 // équipes déclarées (data/private/equipe.json) et les dernières données synchronisées.
 // À relancer quand equipe.json ou les Sheets changent.
 //
-// Prérequis : BLOB_READ_WRITE_TOKEN dans .env (Vercel → Storage → le store Blob → .env.local).
 // Usage : npm run cloud:push
+// (le jeton du store est récupéré auprès de Vercel s'il n'est pas dans .env ; il faut être connecté : vercel login)
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { TEAMS, teamFile } from '../src/store.js';
 import { localPrivateConfig } from '../src/sync.js';
 import { cloudEnabled, putJson, uploadTeam } from '../src/cloud.js';
 
+// Jeton du store de production : récupéré auprès de Vercel le temps de l'envoi, jamais écrit dans le projet
 if (!cloudEnabled()) {
-  console.error('BLOB_READ_WRITE_TOKEN manquant dans .env (Vercel → Storage → store Blob → onglet .env.local).');
+  const dir = mkdtempSync(path.join(tmpdir(), 'copilot-'));
+  const file = path.join(dir, 'env');
+  const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  spawnSync(npx, ['-y', 'vercel@latest', 'env', 'pull', file, '--environment', 'production', '--yes'], { stdio: 'ignore', shell: process.platform === 'win32' });
+  const line = existsSync(file) ? readFileSync(file, 'utf8').split(/\r?\n/).map((l) => l.trim()).find((l) => l.startsWith('BLOB_READ_WRITE_TOKEN=')) : null;
+  rmSync(dir, { recursive: true, force: true });
+  if (line) process.env.BLOB_READ_WRITE_TOKEN = line.slice(line.indexOf('=') + 1).replace(/^"|"$/g, '');
+}
+if (!cloudEnabled()) {
+  console.error('Jeton du store introuvable : connectez-vous à Vercel (npx vercel login) dans ce dossier, ou ajoutez BLOB_READ_WRITE_TOKEN à .env.');
   process.exit(1);
 }
 
