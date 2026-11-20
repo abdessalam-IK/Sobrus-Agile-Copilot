@@ -174,6 +174,7 @@ export function buildIssue(raw, cycle, nowTs = Date.now()) {
   return {
     key: raw.identifier,
     title: raw.title,
+    linearState: raw.state.name, // statut Linear actuel (OVH / PROD pour la Review)
     type: labels.some((l) => /(^|\/)(bug|regression)$/i.test(l)) ? 'bug' : 'story',
     points: raw.estimate ?? null,
     epic: raw.parent?.title || raw.project?.name || labels.find((l) => /^Module /.test(l)) || 'Sans epic',
@@ -226,6 +227,8 @@ function featuresOf(raws, cycle) {
         key: r.identifier,
         title: r.title,
         state: r.state.name,
+        stateType: r.state.type,
+        project: r.project?.name || null,
         goal: labels.some(isGoal),
         total: kids.length,
         done: done.length,
@@ -234,6 +237,8 @@ function featuresOf(raws, cycle) {
         unestimated: kids.filter((k) => !closedType(k) && k.estimate == null).length,
         outside: kids.filter((k) => !closedType(k) && k.cycle?.id !== cycle.id).map((k) => ({ key: k.identifier, title: k.title, state: k.state.name })),
         complete: kids.length > 0 && done.length === kids.length,
+        // Sous-tickets : livré = statut terminé dans Linear (Done à tester, Vérifié par QA, Vérifié en OVH, Vérifié en PROD)
+        children: kids.map((k) => ({ key: k.identifier, title: k.title, state: k.state.name, done: closedType(k), inCycle: k.cycle?.id === cycle.id, points: k.estimate ?? null })),
       };
     })
     .sort((a, b) => a.done / a.total - b.done / b.total);
@@ -278,7 +283,7 @@ export async function importFromLinear({ teamKey = 'SUPP', closedCycles = 6, she
       goal: c.description?.trim() || 'Objectif non renseigné dans Linear (issues « commitment prod »)',
       goalSet: Boolean(c.description?.trim()),
       linearCycleId: c.id,
-      features: c.isActive ? featuresOf(raws, c) : [],
+      features: featuresOf(raws, c),
       absences: {},
       issues,
       review: null,

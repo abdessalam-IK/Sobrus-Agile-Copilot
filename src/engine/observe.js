@@ -219,6 +219,8 @@ export function observeSprint(dataset, sprintId, asOf) {
     comments,
     // Fonctionnalités (parents + sous-issues) : état actuel de Linear, donc seulement quand on regarde aujourd'hui
     features: at >= (dataset.meta?.referenceDate || at) ? sprint.features || [] : [],
+    // Pour la Review : tickets parents du sprint, état actuel de Linear (y compris pour un sprint terminé)
+    parents: sprint.features || [],
     review: closed ? sprint.review : null,
     retro: closed ? sprint.retro : null,
   };

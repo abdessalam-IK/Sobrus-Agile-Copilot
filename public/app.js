@@ -773,15 +773,46 @@ function prepDaily(d) {
       <div class="card"><h3>Arrivés dans le sprint depuis le ${dm(d.since)}</h3>${ticketsOpen(d.added, 'Aucun nouveau ticket.')}</div>
     </div>`;
 }
+/** Un message clé : étiquette colorée, phrase, puis les tickets concernés (5 visibles, le reste repliable). */
+function keyMessage(msg) {
+  const row = (x) => `<li>${ticketLink(x.key)} ${esc(x.title)}${x.note ? ` <span class="small muted">— ${esc(x.note)}</span>` : ''}</li>`;
+  const shown = msg.items.slice(0, 5).map(row).join('');
+  const more = msg.items.length > 5 ? `<details class="tickets"><summary>+ ${msg.items.length - 5} autre${msg.items.length - 5 > 1 ? 's' : ''}</summary><ul class="km-items">${msg.items.slice(5).map(row).join('')}</ul></details>` : '';
+  return `<div class="km"><div><span class="tag ${msg.tone}">${esc(msg.label)}</span> ${esc(msg.text)}</div>${shown ? `<ul class="km-items">${shown}</ul>` : ''}${more}</div>`;
+}
+
+/** Ticket parent : vert si tous ses sous-tickets sont livrés, orange sinon ; le détail des sous-tickets se déplie. */
+function featureRow(f) {
+  const full = f.total > 0 && f.done === f.total;
+  const outside = f.children.filter((k) => !k.inCycle).length;
+  const kids = f.children.map((k) => `<tr><td>${ticketLink(k.key)} ${esc(k.title)}${k.inCycle ? '' : ' <span class="small muted">(hors de ce sprint)</span>'}</td><td><span class="st ${k.done ? 'done' : 'todo'}">${esc(k.state)}</span></td></tr>`).join('');
+  return `<details class="feat ${full ? 'full' : 'partial'}"><summary>${ticketLink(f.key)} ${esc(f.title)}
+      <span class="tag ${full ? 'green' : 'orange'}">${f.total ? `${f.done} ticket${f.done > 1 ? 's' : ''} livré${f.done > 1 ? 's' : ''} sur ${f.total}` : 'aucun sous-ticket'}</span>
+      <span class="small muted">${outside ? `dont ${outside} hors de ce sprint ` : ''}· statut du parent : ${esc(f.state)}</span></summary>
+    ${kids ? `<table class="ticket-table"><thead><tr><th>Sous-ticket</th><th>Statut</th></tr></thead><tbody>${kids}</tbody></table>` : ''}</details>`;
+}
+
+function reachSection(title, tone, hint, sec) {
+  const n = sec.features.length + sec.tickets.issues.length;
+  if (!n) return '';
+  const loose = sec.tickets.issues.length ? signalTickets(sec.tickets, { label: `${sec.tickets.issues.length} ticket${sec.tickets.issues.length > 1 ? 's' : ''} sans ticket parent dans le sprint`, opts: { noteLabel: 'Statut Linear' } }) : '';
+  return `<div class="reach"><h4><span class="tag ${tone}">${esc(title)}</span> <span class="small muted">${esc(hint)}</span></h4>${sec.features.map(featureRow).join('')}${loose}</div>`;
+}
+
 function prepReview(r) {
-  const groups = r.delivered.map((g) => signalTickets({ issues: g.issues }, { label: `${g.name} — ${g.issues.length} ticket${g.issues.length > 1 ? 's' : ''}` })).join('');
+  const d = r.delivered;
+  const delivered = [
+    reachSection('Atteint en PROD', 'green', 'statut « Vérifié en PROD »', d.prod),
+    reachSection('Atteint en OVH', 'brand', 'statut « Done à tester », « Vérifié par QA » ou « Vérifié en OVH »', d.ovh),
+    reachSection('Non atteint, livré en partie', 'orange', 'parent dans un autre statut, au moins un sous-ticket livré', { features: d.partial, tickets: { issues: [] } }),
+  ].join('');
   return `${inProgressBanner(r, 'la Review')}
     <div class="card"><h3>Messages clés</h3>
       <p class="muted">${r.goalSet ? `Objectif du sprint : « ${esc(r.goal)} »` : 'Aucun objectif de sprint écrit dans Linear.'}</p>
-      ${list(r.keyMessages.map(esc))}
+      ${r.keyMessages.map(keyMessage).join('')}
     </div>
     <div class="grid cols-2" style="margin-top:16px">
-      <div class="card"><h3>Livré</h3><p class="small muted">Regroupé par fonctionnalité ou projet.</p>${groups || '<p class="empty">Rien de livré pour l’instant.</p>'}</div>
+      <div class="card"><h3>Livré</h3><p class="small muted">Un sous-ticket est livré dès « Done à tester », « Vérifié par QA », « Vérifié en OVH » ou « Vérifié en PROD ». En vert : tous les sous-tickets livrés ; en orange : il en reste.</p>${delivered || '<p class="empty">Rien de livré pour l’instant.</p>'}</div>
       <div class="card"><h3>Pas livré, et pourquoi</h3>${r.anticipated && r.notDelivered.issues.length ? signalTickets(r.notDelivered, { label: `Voir les ${r.notDelivered.issues.length} tickets pas encore livrés`, opts: { noteLabel: 'Raison' } }) : ticketsOpen(r.notDelivered, 'Tout est livré.', { noteLabel: 'Raison' })}</div>
     </div>
     ${r.feedback.length ? `<div class="card" style="margin-top:16px"><h3>Retours des parties prenantes</h3>${list(r.feedback.map((f) => `<b>${esc(f.from)}</b> « ${esc(f.text)} »`))}</div>` : ''}`;

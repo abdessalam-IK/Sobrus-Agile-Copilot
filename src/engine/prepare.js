@@ -91,38 +91,98 @@ function daily(snap, thought, history, holidays, names) {
 }
 
 // ---------------------------------------------------------------------------
-// Sprint Review : ce qui est livré, ce qui ne l'est pas et pourquoi, les messages à porter
+// Sprint Review : ce qui est atteint (PROD, OVH), ce qui ne l'est pas et pourquoi, les messages à porter
 // ---------------------------------------------------------------------------
+// Atteinte d'un ticket parent (ou d'un ticket sans parent) selon son statut Linear.
+const norm = (s) => String(s || '').trim().toLowerCase();
+const stateList = (env, def) => (process.env[env] || def).split(',').map(norm).filter(Boolean);
+export const PROD_STATES = () => stateList('REVIEW_PROD_STATES', 'Vérifié en PROD');
+export const OVH_STATES = () => stateList('REVIEW_OVH_STATES', 'Done à tester,Vérifié par QA,Vérifié en OVH');
+export const reach = (state) => (PROD_STATES().includes(norm(state)) ? 'prod' : OVH_STATES().includes(norm(state)) ? 'ovh' : 'none');
+
+const plural = (n, one, many = `${one}s`) => `${n} ${n > 1 ? many : one}`;
+
 function review(snap, thought, names) {
   const m = snap.metrics;
-  const done = snap.issues.filter((i) => i.done);
+  const byKey = new Map(snap.issues.map((i) => [i.key, i]));
   const notDone = snap.issues.filter((i) => !i.done);
-  // Livré, regroupé par fonctionnalité (ticket parent) ou projet ; le reste dans « Autres tickets »
-  const groups = new Map();
-  for (const i of done) {
-    const g = i.epic && i.epic !== 'Sans epic' ? i.epic : 'Autres tickets';
-    groups.set(g, [...(groups.get(g) || []), i.key]);
-  }
-  const delivered = [...groups].map(([name, keys]) => ({ name, issues: keys }))
-    .sort((x, y) => (x.name === 'Autres tickets') - (y.name === 'Autres tickets') || y.issues.length - x.issues.length);
+  const parents = snap.parents || [];
+  const parentKeys = new Set(parents.map((p) => p.key));
+
+  // Tickets parents : sous-tickets livrés / total, atteinte selon le statut du parent
+  const feats = parents.map((p) => ({
+    key: p.key,
+    title: p.title,
+    state: p.state,
+    reach: reach(p.state),
+    done: p.done,
+    total: p.total,
+    complete: p.complete,
+    goal: p.goal,
+    children: p.children || [],
+  }));
+  // Tickets livrés sans parent dans le sprint (ou dont le parent est hors sprint) : atteinte selon leur propre statut
+  const loose = snap.issues.filter((i) => i.done && !(i.parentKey && parentKeys.has(i.parentKey)));
+  const looseReach = (i) => (reach(i.linearState) === 'prod' ? 'prod' : 'ovh'); // livré = au moins OVH
+  const order = (a, b) => b.complete - a.complete || b.done / (b.total || 1) - a.done / (a.total || 1) || b.total - a.total;
+  const section = (r) => {
+    const tickets = loose.filter((i) => looseReach(i) === r);
+    return {
+      features: feats.filter((f) => f.reach === r).sort(order),
+      tickets: { issues: tickets.map((i) => i.key), notes: Object.fromEntries(tickets.map((i) => [i.key, `${i.linearState || ''}${i.parentKey ? ` · sous-ticket de ${i.parentKey}` : ''}`])) },
+    };
+  };
+  const prod = section('prod');
+  const ovh = section('ovh');
+  // Non atteint mais livré en partie : parent dans un autre statut, au moins un sous-ticket livré
+  const partial = feats.filter((f) => f.reach === 'none' && f.done > 0).sort(order);
+  const notStarted = feats.filter((f) => f.reach === 'none' && f.done === 0);
+
   const reason = (i) => (i.blockedNow ? `bloqué${i.currentBlock?.reason ? ` : ${i.currentBlock.reason.replace(/^Label « (.*) »$/, '$1')}` : ''}` : i.status === 'todo' ? 'pas démarré' : 'en cours, pas terminé');
-  const count = (pred) => notDone.filter(pred).length;
-  const features = snap.features || [];
-  const goalTotal = m.goalTotal;
+  const item = (key, title, note) => ({ key, title: title || '', note: note || '' });
+  const featItem = (f) => item(f.key, f.title, f.total ? `${f.done}/${f.total} sous-tickets livrés` : f.state);
+  const done = (n) => (n > 1 ? 's' : '');
+
+  // Messages clés : ce qui est atteint, nommé, puis ce qui reste et pourquoi
+  const messages = [];
+  const reachedItems = (sec) => [...sec.features.map(featItem), ...sec.tickets.issues.map((k) => item(k, byKey.get(k)?.title, byKey.get(k)?.linearState))];
+  const count = (sec) => [sec.features.length && plural(sec.features.length, 'fonctionnalité'), sec.tickets.issues.length && plural(sec.tickets.issues.length, 'ticket')].filter(Boolean).join(' et ');
+  const prodItems = reachedItems(prod);
+  const ovhItems = reachedItems(ovh);
+  if (prodItems.length) messages.push({ tone: 'green', label: 'En PROD', text: `${count(prod)} vérifié${done(prodItems.length)} en production : la valeur est chez les clients.`, items: prodItems });
+  if (ovhItems.length) {
+    const open = ovh.features.filter((f) => !f.complete).length;
+    messages.push({ tone: 'brand', label: 'Sur OVH', text: `${count(ovh)} atteint${done(ovhItems.length)} sur OVH, en attente de mise en PROD${open ? ` (dont ${plural(open, 'fonctionnalité')} avec des sous-tickets encore ouverts)` : ''}.`, items: ovhItems });
+  }
+  if (!prodItems.length && !ovhItems.length) messages.push({ tone: 'red', label: 'Rien d’atteint', text: 'Aucune fonctionnalité ni aucun ticket n’a encore atteint OVH ou la PROD.', items: [] });
+  if (partial.length) {
+    const d = partial.reduce((a, f) => a + f.done, 0);
+    const t = partial.reduce((a, f) => a + f.total, 0);
+    messages.push({ tone: 'orange', label: 'En partie', text: `${plural(partial.length, 'fonctionnalité avancée', 'fonctionnalités avancées')} mais non atteinte${done(partial.length)} : ${d} sous-ticket${done(d)} livré${done(d)} sur ${t} (tous sprints confondus).`, items: partial.map(featItem) });
+  }
+  if (m.goalTotal) {
+    const goalOpen = snap.issues.filter((i) => i.goal && !i.done);
+    messages.push({ tone: m.goalDone === m.goalTotal ? 'green' : 'orange', label: 'Commitment prod', text: m.goalDone === m.goalTotal ? `Les ${m.goalTotal} engagements « commitment prod » sont livrés.` : `${m.goalDone} engagement${done(m.goalDone)} « commitment prod » livré${done(m.goalDone)} sur ${m.goalTotal}. Il reste :`, items: goalOpen.map((i) => item(i.key, i.title, reason(i))) });
+  }
+  const blocked = notDone.filter((i) => i.blockedNow);
+  if (blocked.length) messages.push({ tone: 'red', label: 'Bloqué', text: `${plural(blocked.length, 'ticket bloqué', 'tickets bloqués')}, à débloquer avec les parties prenantes.`, items: blocked.map((i) => item(i.key, i.title, reason(i).replace(/^bloqué : /, ''))) });
+  if (notStarted.length) messages.push({ tone: 'neutral', label: 'Pas démarré', text: `${plural(notStarted.length, 'fonctionnalité', 'fonctionnalités')} sans aucun sous-ticket livré.`, items: notStarted.map(featItem) });
+  const added = snap.issues.filter((i) => i.addedMidSprint);
+  if (added.length) {
+    const bugs = added.filter((i) => i.type === 'bug').length;
+    const addedDone = added.filter((i) => i.done).length;
+    messages.push({ tone: 'neutral', label: 'Imprévus', text: `${plural(added.length, 'ticket arrivé', 'tickets arrivés')} en cours de sprint${bugs ? `, dont ${plural(bugs, 'bug')}` : ''} ; ${addedDone} déjà livré${done(addedDone)}.`, items: added.map((i) => item(i.key, i.title, i.done ? 'livré' : reason(i))) });
+  }
+  messages.push({ tone: 'neutral', label: 'En chiffres', text: `Dans ce sprint : ${m.doneCount} ticket${done(m.doneCount)} livré${done(m.doneCount)} sur ${m.scopeCount}${m.scopePoints ? ` (${m.donePoints} point${done(m.donePoints)} sur ${m.scopePoints})` : ''}.`, items: [] });
+
   return {
     anticipated: !snap.closed,
     day: `${snap.dayIndex}/${snap.totalDays}`,
     goalSet: !/non renseigné/i.test(snap.sprint.goal || ''),
     goal: snap.sprint.goal,
-    keyItems: goalTotal ? { done: m.goalDone, total: goalTotal } : null,
-    keyMessages: [
-      `${m.doneCount} ticket${m.doneCount > 1 ? 's' : ''} livré${m.doneCount > 1 ? 's' : ''} sur ${m.scopeCount}${m.scopePoints ? ` (${m.donePoints} point${m.donePoints > 1 ? 's' : ''} estimé${m.donePoints > 1 ? 's' : ''} sur ${m.scopePoints})` : ''}.`,
-      features.length ? `${features.filter((x) => x.complete).length} fonctionnalité${features.filter((x) => x.complete).length > 1 ? 's' : ''} sur ${features.length} entièrement terminée${features.filter((x) => x.complete).length > 1 ? 's' : ''} (tous les sous-tickets livrés).` : null,
-      goalTotal ? (m.goalDone === goalTotal ? `Les ${goalTotal} éléments clés (« commitment prod ») sont livrés.` : `${m.goalDone} élément${m.goalDone > 1 ? 's' : ''} clé${m.goalDone > 1 ? 's' : ''} sur ${goalTotal} livré${m.goalDone > 1 ? 's' : ''} (« commitment prod »).`) : null,
-      m.unplannedCount ? `${m.unplannedCount} ticket${m.unplannedCount > 1 ? 's sont arrivés' : ' est arrivé'} en cours de sprint, en plus du Planning.` : null,
-      notDone.length ? `${notDone.length} ticket${notDone.length > 1 ? 's ne sont pas terminés' : ' n’est pas terminé'} : ${[[count((i) => i.blockedNow), 'bloqué'], [count((i) => !i.blockedNow && i.status !== 'todo'), 'en cours'], [count((i) => !i.blockedNow && i.status === 'todo'), 'pas démarré']].filter(([n]) => n).map(([n, w]) => `${n} ${w}${n > 1 && w !== 'en cours' ? 's' : ''}`).join(', ')}.` : 'Tout ce qui était prévu est livré.',
-    ].filter(Boolean),
-    delivered,
+    keyItems: m.goalTotal ? { done: m.goalDone, total: m.goalTotal } : null,
+    keyMessages: messages,
+    delivered: { prod, ovh, partial },
     notDelivered: { issues: notDone.map((i) => i.key), notes: Object.fromEntries(notDone.map((i) => [i.key, reason(i)])) },
     feedback: snap.review?.feedback || [],
   };

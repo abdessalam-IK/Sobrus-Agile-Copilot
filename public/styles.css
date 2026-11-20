@@ -293,3 +293,16 @@ ul.watch > li.watch-item:last-child { border-bottom: 0; }
 
 .banner { background: var(--attention-soft); color: var(--text); border-radius: 8px; padding: 8px 12px; margin: 0 0 14px; font-size: 13px; }
 tr.guest td { color: var(--muted); }
+
+/* Sprint Review : messages clés et atteinte des tickets parents */
+.km { padding: 8px 0; border-top: 1px solid var(--border); }
+.km:first-of-type { border-top: 0; }
+.km-items { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; }
+.km-items li { margin: 2px 0; }
+.tag.neutral { background: var(--surface-2); color: var(--text, inherit); }
+.reach { margin-top: 14px; }
+.reach h4 { margin: 0 0 6px; font-size: 13px; }
+details.feat { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 8px; padding: 7px 10px; margin: 6px 0; background: var(--surface); }
+details.feat.full { border-left-color: var(--ok); background: var(--ok-soft); }
+details.feat.partial { border-left-color: var(--attention); background: var(--attention-soft); }
+details.feat summary { cursor: pointer; font-size: 13px; line-height: 1.6; }
