@@ -87,7 +87,7 @@ export async function fetchSheets(url, token = process.env.GOOGLE_SHEET_TOKEN) {
   return sheetsFromTabs(tabs);
 }
 
-function sheetsFromTabs(tabs) {
+export function sheetsFromTabs(tabs) {
   const developers = readTab(tabs, 'Config', 'Email').filter((r) => r.Email.includes('@')).map((r) => ({ email: r.Email.toLowerCase(), name: r.Nom }));
   const sprints = readTab(tabs, 'Config', 'Sprint').filter((r) => r['Date début']).map((r) => ({ name: r.Sprint, start: r['Date début'], end: r['Date fin'], capacityHours: num(r['Capacité/dev (h)']), status: r.Statut }));
 

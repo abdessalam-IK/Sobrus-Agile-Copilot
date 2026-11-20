@@ -11,9 +11,19 @@ import { sobrusOverview } from './engine/sobrus.js';
 import { TEAMS, availableTeams, loadDataset, loadAll } from './store.js';
 import { generate, aiConfigured, aiModel, aiProvider, AI_KINDS } from './ai/claude.js';
 import { timeZone, offsetMinutes } from './lib/tz.js';
-import { syncAll } from './sync.js';
+import { syncAll, localPrivateConfig } from './sync.js';
 import { authEnabled, currentUser, handleAuth } from './auth.js';
-import { cloudEnabled, hydrate, privateConfig, uploadTeam } from './cloud.js';
+import { cloudEnabled, hydrate, privateConfig, uploadTeam, putJson, getJson, SHEETS_BLOB } from './cloud.js';
+import { sheetsFromTabs } from './adapters/sheets.js';
+import { timingSafeEqual } from 'node:crypto';
+
+/** Code secret partagé avec l'Apps Script du Google Sheet. */
+function sheetTokenOk(given) {
+  const expected = process.env.GOOGLE_SHEET_TOKEN || '';
+  const a = Buffer.from(String(given || ''));
+  const b = Buffer.from(expected);
+  return expected.length >= 16 && a.length === b.length && timingSafeEqual(a, b);
+}
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -51,7 +61,7 @@ export function runSync(reason) {
   syncing = (async () => {
     try {
       // En ligne : configuration privée et résultats dans le store Vercel Blob
-      const config = cloudEnabled() ? await privateConfig() : null;
+      const config = cloudEnabled() ? await privateConfig(localPrivateConfig()) : null;
       const results = await syncAll(config ? { config } : {});
       if (cloudEnabled()) await Promise.all(results.map((r) => uploadTeam(r.team)));
       console.log(`Synchronisation ${reason} terminée (${new Date().toISOString()})`);
@@ -153,6 +163,23 @@ async function route(req, res) {
     return send(res, 200, runAnalysis(team, parts[2].replace(/\.md$/, ''), asOf).analysis.report, 'text/markdown; charset=utf-8');
   }
   if (req.method === 'POST' && parts[1] === 'sync') return send(res, 200, await runSync('manuelle'));
+  // Google Sheet « Taux d'Occupation » : envoyé par son Apps Script (POST), relu par le Copilot local (GET)
+  if (parts[1] === 'sheets') {
+    if (!cloudEnabled()) return send(res, 404, { error: 'Stockage en ligne non configuré' });
+    if (req.method === 'POST') {
+      const body = await readBody(req);
+      if (!sheetTokenOk(body.token)) return send(res, 403, { error: 'Accès refusé' });
+      const sheets = { ...sheetsFromTabs(body.tabs || {}), receivedAt: new Date().toISOString() };
+      if (!sheets.sprints.length) return send(res, 400, { error: 'Onglet Config vide ou illisible' });
+      await putJson(SHEETS_BLOB, sheets);
+      return send(res, 200, { ok: true, receivedAt: sheets.receivedAt, developers: sheets.developers.length, sprints: sheets.sprints.length, lastSprint: sheets.sprints.at(-1)?.name, meetingSprints: Object.keys(sheets.meetings).length });
+    }
+    if (req.method === 'GET') {
+      if (!sheetTokenOk(url.searchParams.get('token'))) return send(res, 403, { error: 'Accès refusé' });
+      const sheets = await getJson(SHEETS_BLOB).catch(() => null);
+      return sheets ? send(res, 200, { sheets }) : send(res, 404, { error: 'Aucune donnée reçue du Google Sheet pour l’instant' });
+    }
+  }
   if (req.method === 'POST' && parts[1] === 'ai' && parts[2]) {
     const { kind, asOf: bodyAsOf, team: bodyTeam } = await readBody(req);
     const { dataset, analysis } = runAnalysis((bodyTeam || team).toUpperCase(), parts[2], bodyAsOf);

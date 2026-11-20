@@ -68,11 +68,14 @@ export function hydrate() {
   return hydrating;
 }
 
-/** Configuration privée (équipes, Sheets) déposée depuis le poste local par « npm run cloud:push ». */
-export async function privateConfig() {
-  const [teamConfig, sheets] = await Promise.all([getJson('config/equipe.json.gz'), getJson('config/sheets.json.gz')]);
-  return { teamConfig: teamConfig || {}, sheets };
+/** Configuration privée du store ; à défaut, celle livrée avec le déploiement (`base`). */
+export async function privateConfig(base = { teamConfig: {}, sheets: null }) {
+  const [teamConfig, sheets] = await Promise.all([getJson('config/equipe.json.gz').catch(() => null), getJson(SHEETS_BLOB).catch(() => null)]);
+  return { teamConfig: teamConfig || base.teamConfig, sheets: sheets || base.sheets, sheetsSource: sheets ? 'google' : 'csv' };
 }
+
+/** Données du Google Sheet envoyées par son Apps Script (voir scripts/apps-script/Copilot.gs). */
+export const SHEETS_BLOB = 'config/sheets.json.gz';
 
 /** Envoie au store les données d'une équipe déjà écrites dans /tmp (ou data/private en local). */
 export async function uploadTeam(team) {

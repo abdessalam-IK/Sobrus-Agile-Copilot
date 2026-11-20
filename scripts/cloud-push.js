@@ -1,5 +1,5 @@
 // Dépose dans le store privé Vercel Blob ce qui ne vit que sur ce poste :
-// équipes déclarées (data/private/equipe.json), exports Sheets, et les dernières données synchronisées.
+// équipes déclarées (data/private/equipe.json) et les dernières données synchronisées.
 // À relancer quand equipe.json ou les Sheets changent.
 //
 // Prérequis : BLOB_READ_WRITE_TOKEN dans .env (Vercel → Storage → le store Blob → .env.local).
@@ -15,11 +15,10 @@ if (!cloudEnabled()) {
   process.exit(1);
 }
 
-const { teamConfig, sheets } = localPrivateConfig();
+const { teamConfig } = localPrivateConfig();
 await putJson('config/equipe.json.gz', teamConfig);
 console.log(`Équipes déclarées envoyées : ${Object.keys(teamConfig.equipes || {}).join(', ') || 'aucune'}`);
-await putJson('config/sheets.json.gz', sheets);
-console.log(sheets ? `Sheets envoyés : ${sheets.developers.length} développeurs, ${sheets.holidays.length} jours fériés` : 'Aucun export Sheets trouvé (data/private/Sheets).');
+// Les Sheets ne sont pas envoyés d'ici : l'Apps Script du Google Sheet les envoie lui-même, à jour (scripts/apps-script/Copilot.gs).
 for (const team of TEAMS) {
   if (!existsSync(teamFile(team))) { console.log(`${team} : pas encore synchronisé, ignoré`); continue; }
   await uploadTeam(team);

@@ -47,9 +47,17 @@ export async function syncLinear({ teamKey = TEAMS[0], closedCycles = 6, onProgr
 /** Configuration privée à jour : équipes (equipe.json) + Google Sheet en direct quand GOOGLE_SHEET_URL est défini. */
 export async function freshPrivateConfig(base = localPrivateConfig()) {
   loadEnv();
-  if (!process.env.GOOGLE_SHEET_URL) return base;
+  const url = process.env.GOOGLE_SHEET_URL;
+  if (!url || base.sheetsSource === 'google') return base;
   try {
-    return { ...base, sheets: await fetchSheets(process.env.GOOGLE_SHEET_URL), sheetsSource: 'google' };
+    // Version en ligne du Copilot : elle reçoit le Sheet de son Apps Script et le redonne avec le code secret
+    if (url.includes('/api/sheets')) {
+      const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(process.env.GOOGLE_SHEET_TOKEN || '')}`);
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.sheets) throw new Error(body?.error || `réponse ${res.status}`);
+      return { ...base, sheets: body.sheets, sheetsSource: 'google', sheetsReceivedAt: body.sheets.receivedAt };
+    }
+    return { ...base, sheets: await fetchSheets(url), sheetsSource: 'google' };
   } catch (e) {
     console.error(`Google Sheet illisible, repli sur les CSV locaux : ${e.message}`);
     return { ...base, sheetsSource: 'csv' };
